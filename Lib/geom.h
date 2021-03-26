@@ -1,5 +1,6 @@
 #include <cmath>
 #include <set>
+#include <iostream>
 
 struct Color {
     float r;
@@ -54,11 +55,57 @@ struct Object {
 
 struct Rectangle : public Object {
     // from left down to right down
+    Rectangle() {}
     Rectangle(Vec a, Vec b, Vec c, Vec d) {
         triangles_number = 2;
         triangles = new Triangle[2];
         triangles[0] = Triangle(a, b, c);
         triangles[1] = Triangle(a, c, d);
+    }
+
+    const Rectangle operator+(Vec v) {
+        return Rectangle(triangles[0].a + v, triangles[0].b + v, triangles[0].c + v, triangles[1].c + v);
+    }
+};
+
+struct Cube : public Object {
+    int rectangles_number;
+    Rectangle *rectangles;
+
+    Cube(Rectangle base, Vec normal) {
+        rectangles_number = 5;
+        
+        rectangles = new Rectangle[rectangles_number];
+        rectangles[0] = base;
+        rectangles[1] = rectangles[0] + normal;
+    
+        
+        Vec a(rectangles[0].triangles[0].a);
+        Vec b(rectangles[0].triangles[0].b);
+        Vec c = a + normal;
+        Vec d = b + normal;
+        rectangles[2] = Rectangle(a, b, d, c);
+        Vec shift = rectangles[0].triangles[0].c - b;
+        rectangles[3] = rectangles[2] + shift;
+        
+        shift = b - a;
+        b = c;
+        d = rectangles[0].triangles[1].c;
+        c = d + normal;
+        rectangles[4] = Rectangle(a, b, c, d);
+        rectangles[5] = rectangles[4] + shift;
+
+    }
+
+    float intersect(Ray ray) {
+        float res = 0;
+        for (int i = 0; i < rectangles_number; i++) {
+            float dist = rectangles[i].intersect(ray);
+            if (dist != 0 && (res == 0 || dist <= res)) {
+                res = dist;
+            }
+        }
+        return res;
     }
 };
 
