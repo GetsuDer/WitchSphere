@@ -24,11 +24,12 @@ render(int size) {
     }
     float size_f = size;
     Vec me(size_f / 2, size_f / 2, size_f * 2);
+    Rectangle rect(Vec(size / 2, size / 2, 0), Vec(size / 2, size / 3, 0), Vec(-size / 2, size / 3, 0));
     Triangle tr(Vec(0, 0, 0), Vec(0, size_f / 2, size_f / 3), Vec(size_f / 2, 0, 0));
     for (int x = 0; x < size; x++) {
         for (int y = 0; y < size; y++) {
             Ray ray = Ray(me, (Vec(x, y, size) - me).normalize());
-            if (intersect(tr, ray) > 0) {
+            if (rect.intersect(ray) > 0) {
                 buffer[x + y * size] = Color(1, 1, 0, 1);
             }
         }

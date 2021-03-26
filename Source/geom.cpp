@@ -1,4 +1,5 @@
 #include "geom.h"
+#include <iostream>
 
 float 
 dot(Vec v1, Vec v2) {
@@ -47,4 +48,19 @@ intersect(Triangle t, Ray r) {
     }
 
     return dot(e2, qvec) * inv_det;
+}
+
+float
+Object::intersect(Ray ray) {
+    if (!triangles) {
+        return 0;
+    }
+    float res = 0;
+    for (int i = 0; i < triangles_number; i++) {
+        float dist = ::intersect(triangles[i], ray);
+        if (dist > 0 && (res == 0 || dist < res)) {
+            res = dist;
+        }
+    }
+    return res;
 }

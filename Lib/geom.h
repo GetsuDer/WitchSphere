@@ -31,7 +31,31 @@ struct Ray {
 
 struct Triangle {
     Vec a, b, c;
+    Triangle() : a(), b(), c() {}
     Triangle(Vec _a, Vec _b, Vec _c) : a(_a), b(_b), c(_c) {}
 };
 
 float intersect(Triangle, Ray);
+
+struct Object {
+    int triangles_number;
+    Triangle *triangles;
+    Object() {
+        triangles_number = 0;
+        triangles = NULL;
+    }
+    float intersect(Ray r);
+};
+
+struct Rectangle : public Object {
+    Rectangle(Vec center, Vec first, Vec second) {
+        triangles_number = 2;
+        Vec b(center + first);
+        Vec a(center - second);
+        Vec c(center + second);
+        Vec d(center - first);
+        triangles = new Triangle[2];
+        triangles[0] = Triangle(a, b, c);
+        triangles[1] = Triangle(a, c, d);
+    }
+};
