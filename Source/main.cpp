@@ -30,7 +30,7 @@ render(int size) {
         }
     }
 
-    stbi_write_png("328_derevyanko_v4v5", size, size, 3, data, size * 3);
+    stbi_write_png("328_derevyanko_v4v5.png", size, size, 3, data, size * 3);
     return;
 }
 
