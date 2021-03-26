@@ -1,4 +1,5 @@
 #include <cmath>
+#include <set>
 
 struct Color {
     float r;
@@ -18,10 +19,14 @@ struct Vec {
     Vec operator+(const Vec& v) const {
         return Vec(x + v.x, y + v.y, z + v.z);
     }
+    Vec operator*(const float a) const {
+        return Vec(x * a, y * a, z * a);
+    }
 }; 
 
 float dot(Vec, Vec);
 Vec cross(Vec, Vec);
+Vec rotateAroundAxis(Vec, Vec, float);
 
 struct Ray {
     Vec pos;
@@ -48,14 +53,29 @@ struct Object {
 };
 
 struct Rectangle : public Object {
-    Rectangle(Vec center, Vec first, Vec second) {
+    // from left down to right down
+    Rectangle(Vec a, Vec b, Vec c, Vec d) {
         triangles_number = 2;
-        Vec b(center + first);
-        Vec a(center - second);
-        Vec c(center + second);
-        Vec d(center - first);
         triangles = new Triangle[2];
         triangles[0] = Triangle(a, b, c);
         triangles[1] = Triangle(a, c, d);
     }
+};
+
+struct Pentagon : public Object {
+    Pentagon(Vec center, Vec vec, Vec normal) {
+        Vec a(center + vec);
+        float angle = (2 * M_PI) / 5;
+        Vec b(center + rotateAroundAxis(vec, normal, angle));
+        Vec c(center + rotateAroundAxis(vec, normal, angle * 2));
+        Vec d(center + rotateAroundAxis(vec, normal, angle * 3));
+        Vec e(center + rotateAroundAxis(vec, normal, angle * 4));
+        
+        triangles_number = 3;
+        triangles = new Triangle[3];
+        triangles[0] = Triangle(a, b, c);
+        triangles[1] = Triangle(a, c, e);
+        triangles[2] = Triangle(c, d, e);
+    }
+
 };

@@ -1,5 +1,7 @@
 #include "geom.h"
 #include <iostream>
+#include <set>
+#include <cmath>
 
 float 
 dot(Vec v1, Vec v2) {
@@ -18,6 +20,13 @@ Vec
 Vec::normalize() {
         float len = sqrt( x * x + y * y + z * z);
         return Vec(x / len, y / len, z / len);
+}
+
+Vec rotateAroundAxis(Vec vector, Vec axis, float angle) {
+    Vec res;
+    axis = axis.normalize();
+    res = vector * cos(angle) + cross(axis, vector) * sin(angle) + axis * dot(axis, vector) * (1 - cos(angle));
+    return res;
 }
 
 float

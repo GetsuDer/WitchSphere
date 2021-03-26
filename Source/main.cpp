@@ -24,13 +24,17 @@ render(int size) {
     }
     float size_f = size;
     Vec me(size_f / 2, size_f / 2, size_f * 2);
-    Rectangle rect(Vec(size / 2, size / 2, 0), Vec(size / 2, size / 3, 0), Vec(-size / 2, size / 3, 0));
-    Triangle tr(Vec(0, 0, 0), Vec(0, size_f / 2, size_f / 3), Vec(size_f / 2, 0, 0));
+    Rectangle rect(Vec(0, 0, 0), Vec(0, size / 3, 0), Vec(size / 3, size / 3, 0), Vec(size / 3, 0, 0));
+    Pentagon pent(Vec(size / 2, size / 2, 0), Vec(0, size / 2, 0), Vec(0, 0, size / 2));
+    
     for (int x = 0; x < size; x++) {
         for (int y = 0; y < size; y++) {
             Ray ray = Ray(me, (Vec(x, y, size) - me).normalize());
             if (rect.intersect(ray) > 0) {
                 buffer[x + y * size] = Color(1, 1, 0, 1);
+            }
+            if (pent.intersect(ray) > 0) {
+                buffer[x + y * size] = Color(1, 0, 0, 1);
             }
         }
     }
@@ -55,8 +59,12 @@ main(int argc, char **argv) {
     int size = 512;
     while (i < argc) {
         if (!strncmp(argv[i], "-w", 2)) {
-            size = strtol(argv[i + 1], NULL, 10);
-            std::cout << size << std::endl;
+            i++;
+            if (argc <= i) return 1;
+            size = strtol(argv[i], NULL, 10);
+            i++;
+        } else {
+            i++;
         }
     }
     
