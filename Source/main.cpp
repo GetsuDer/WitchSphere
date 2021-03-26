@@ -8,6 +8,8 @@
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
+
 void 
 render(int size) {
     if (size < 0) {
@@ -17,7 +19,18 @@ render(int size) {
     std::vector<Color> buffer(size * size);
     for (int x = 0; x < size; x++) {
         for (int y = 0; y < size; y++) {
-            buffer[x + y * size] = Color(x / float(size), y / float(size), 0.f, 1.f);
+            buffer[x + y * size] = Color(0, 0, 1, 1.f);
+        }
+    }
+    float size_f = size;
+    Vec me(size_f / 2, size_f / 2, size_f * 2);
+    Triangle tr(Vec(0, 0, 0), Vec(0, size_f / 2, size_f / 3), Vec(size_f / 2, 0, 0));
+    for (int x = 0; x < size; x++) {
+        for (int y = 0; y < size; y++) {
+            Ray ray = Ray(me, (Vec(x, y, size) - me).normalize());
+            if (intersect(tr, ray) > 0) {
+                buffer[x + y * size] = Color(1, 1, 0, 1);
+            }
         }
     }
 
@@ -31,6 +44,7 @@ render(int size) {
     }
 
     stbi_write_png("328_derevyanko_v4v5.png", size, size, 3, data, size * 3);
+    delete[] data;
     return;
 }
 
