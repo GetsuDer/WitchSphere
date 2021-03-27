@@ -34,8 +34,10 @@ Vec rotateAroundAxis(Vec vector, Vec axis, float angle) {
     return res;
 }
 
-float
+Collision
 intersect(Triangle t, Ray r) {
+    Collision res;
+
     Vec e1 = t.b - t.a;
     Vec e2 = t.c - t.a;
     // normal vector
@@ -44,37 +46,46 @@ intersect(Triangle t, Ray r) {
 
     // || ploskosti
     if (det < 1e-8 && det > -1e-8) {
-        return 0;
+        return res;
     }
 
     float inv_det = 1 / det;
     Vec tvec = r.pos - t.a;
     float u = dot(tvec, pvec) * inv_det;
     if (u < 0 || u > 1) {
-        return 0;
+        return res;
     }
 
     Vec qvec = cross(tvec, e1);
     float v = dot(r.dir, qvec) * inv_det;
 
     if (v < 0 || u + v > 1) {
-        return 0;
+        return res;
     }
-
-    return dot(e2, qvec) * inv_det;
+    
+    res.hit = true;
+    res.dist = dot(e2, qvec) * inv_det;
+   // res.dist = abs(res.dist);
+    res.normal = cross(e1, e2);
+    if (res.dist < 1e-3) {
+       // std::cout << "negative or small" << '\n';
+        res.hit = false;
+    }
+    return res;
 }
 
-float
+Collision
 Object::intersect(Ray ray) {
+    Collision res, tmp;
     if (!triangles) {
-        return 0;
+        return res;
     }
-    float res = 0;
     for (int i = 0; i < triangles_number; i++) {
-        float dist = ::intersect(triangles[i], ray);
-        if (dist > 0 && (res == 0 || dist < res)) {
-            res = dist;
+        tmp = ::intersect(triangles[i], ray);
+        if (tmp.hit && (!res.hit || res.dist > tmp.dist)) {
+            res = tmp;
         }
     }
     return res;
 }
+

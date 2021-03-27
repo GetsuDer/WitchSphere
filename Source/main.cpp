@@ -9,6 +9,18 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+Collision
+find_hit(std::vector<Object *> *scene, Ray ray) {
+    Collision hit, tmp;
+    size_t len = scene->size();
+    for (size_t i = 0; i < len; i++) {
+        tmp = (*scene)[i]->intersect(ray);
+        if (tmp.hit && (!hit.hit || hit.dist > tmp.dist)) {
+            hit = tmp;
+        }
+    }
+    return hit;
+}
 
 void 
 render(int size) {
@@ -23,27 +35,56 @@ render(int size) {
         }
     }
     float size_f = size;
-    Light lamp(Vec(0, 0, size), 1);
+    std::vector<Light> lights = std::vector<Light>();
+    lights.push_back(Light(Vec(0, 0, -size * 5), 0.8));
+    //lights.push_back(Light(Vec(0, 0, 0), 1)); 
+    std::vector<Object*> scene = std::vector<Object*>();
+
+    float me_dist = size * 2;
+    Vec me(0, 0, -me_dist);
+    float side = size_f / 5;
+    float small_side = side / 3;
+    float big_side = size_f / 2;
+
+    Vec shift(size / 5, size / 5, 0);
     
-    Vec me(size_f / 2, size_f / 2, size_f * 2);
-    Rectangle base(Vec(0, 0, 0), Vec(0, 0, size / 3), Vec(size / 3, 0, size / 3), Vec(size / 3, 0, 0));
-    //Pentagon pent(Vec(size / 2, size / 2, 0), Vec(0, size / 2, 0), Vec(0, 0, size / 2));
-    Cube cube(base, Vec(0, size / 3, 0));
+    Rectangle big(Vec(0, 0, size) + shift, Vec(0, big_side, size) + shift, Vec(big_side, big_side, size) + shift, Vec(big_side, 0, size) + shift);
+    Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
+    Rectangle small(Vec(0, 0, -size) + shift, Vec(0, small_side, -size) + shift, Vec(small_side, small_side, -size) + shift, Vec(small_side, 0, -size) + shift);
+    
+    Cube cube(base);
+    Cube small_cube(small);
+    Cube big_cube(big); 
+    
+    scene.push_back(&cube);
+    scene.push_back(&small_cube);
+    scene.push_back(&big_cube);
+
+    float base_light = 0.1;
     for (int x = 0; x < size; x++) {
         for (int y = 0; y < size; y++) {
             Vec dir = (Vec(x, y, size) - me).normalize();
             Ray ray = Ray(me, dir);
-            float dist = cube.intersect(ray);
-            if (dist > 0) {
-                Vec intersect = me + (dir * dist);
-                Vec light_dir = lamp.pos - intersect;
-                Ray to_light(intersect, light_dir.normalize());
-                if (cube.intersect(to_light) <= 0) {
-                    std::cout << light_dir.len() << '\n';
-                    buffer[x + y * size] = Color((light_dir.len() * light_dir.len()) / (size * size), 0, 0, 1);// / light_dir.len(), 1 / light_dir.len(), 0, 1);
-                } else {
-                    std::cout << cube.intersect(to_light) << '\n';
-                   // buffer[x + y * size] = Color(0.5, 0.5, 0, 1);
+            Collision hit = find_hit(&scene, ray);
+            
+            if (hit.hit) {
+                buffer[x + y * size] = Color(1, 1, 0, 1) * base_light;
+                Vec intersect = me + (dir * hit.dist);
+                for (size_t i = 0; i < lights.size(); i++) {
+                    Vec light_dir = lights[i].pos - intersect;
+                    Ray to_light(intersect, light_dir.normalize());
+                    Collision intersected = find_hit(&scene, to_light);
+                    if (!intersected.hit) {
+                        float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
+                        float distance = light_dir.len();
+                        Color add(1, 1, 0);
+                        add = add * angle;
+                        add = add * lights[i].intensity;
+                        buffer[x + y * size] = buffer[x + y * size] + add;
+                    } else {
+                        //std::cout << "no light " << intersected.dist << '\n';
+                    }
+                    
                 }
             }
         }

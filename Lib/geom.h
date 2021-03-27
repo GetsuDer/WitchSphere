@@ -8,6 +8,17 @@ struct Color {
     float b;
     float a;
     Color(float _r = 0, float _g = 0, float _b = 0, float _a = 0) : r(_r), g(_g), b(_b), a(_a) {}
+    const Color operator*(float f) {
+        return Color(r * f, g * f, b * f, a);
+    }
+
+    const Color operator/(float f) {
+        return Color(r / f, g / f, b / f, a);
+    }
+
+    const Color operator+(Color c) {
+        return Color(r + c.r, g + c.g, b + c.b, a);
+    }
 };
 
 struct Vec {
@@ -36,13 +47,20 @@ struct Ray {
     Ray(Vec _pos, Vec _dir) : pos(_pos), dir(_dir) {}
 };
 
+struct Collision {
+    bool hit;
+    float dist;
+    Vec normal;
+    Collision() : hit(false), dist(), normal() {}        
+};
+
 struct Triangle {
     Vec a, b, c;
     Triangle() : a(), b(), c() {}
     Triangle(Vec _a, Vec _b, Vec _c) : a(_a), b(_b), c(_c) {}
 };
 
-float intersect(Triangle, Ray);
+Collision intersect(Triangle, Ray);
 
 struct Object {
     int triangles_number;
@@ -51,7 +69,7 @@ struct Object {
         triangles_number = 0;
         triangles = NULL;
     }
-    float intersect(Ray r);
+    virtual Collision intersect(Ray r);
 };
 
 struct Rectangle : public Object {
@@ -67,43 +85,50 @@ struct Rectangle : public Object {
     const Rectangle operator+(Vec v) {
         return Rectangle(triangles[0].a + v, triangles[0].b + v, triangles[0].c + v, triangles[1].c + v);
     }
+
+    const Rectangle operator-(Vec v) {
+        return Rectangle(triangles[0].a - v, triangles[0].b - v, triangles[0].c - v, triangles[1].c - v);
+    }
+    
 };
 
 struct Cube : public Object {
     int rectangles_number;
     Rectangle *rectangles;
 
-    Cube(Rectangle base, Vec normal) {
-        rectangles_number = 5;
-        
+    Cube(Rectangle base) {
+        rectangles_number = 6;
         rectangles = new Rectangle[rectangles_number];
         rectangles[0] = base;
-        rectangles[1] = rectangles[0] + normal;
+        
+        Vec e1 = base.triangles[0].b - base.triangles[0].a;
+        Vec e2 = base.triangles[0].c - base.triangles[0].b;
+        float side = e1.len();
+        Vec shift = cross(e1, e2).normalize() * side;
+        rectangles[1] = rectangles[0] + shift;
     
-        
         Vec a(rectangles[0].triangles[0].a);
-        Vec b(rectangles[0].triangles[0].b);
-        Vec c = a + normal;
-        Vec d = b + normal;
-        rectangles[2] = Rectangle(a, b, d, c);
-        Vec shift = rectangles[0].triangles[0].c - b;
-        rectangles[3] = rectangles[2] + shift;
+        Vec b = a + shift;
+        Vec c = b + e1;
+        Vec d = a + e1;
         
-        shift = b - a;
-        b = c;
-        d = rectangles[0].triangles[1].c;
-        c = d + normal;
+        rectangles[2] = Rectangle(a, b, c, d);
+        rectangles[3] = rectangles[2] + e2;
+        
+        c = b + e2;
+        d = a + e2;
         rectangles[4] = Rectangle(a, b, c, d);
-        rectangles[5] = rectangles[4] + shift;
-
+        rectangles[5] = rectangles[4] + e1;
     }
 
-    float intersect(Ray ray) {
-        float res = 0;
+    Collision intersect(Ray ray) {
+        Collision res, tmp;
         for (int i = 0; i < rectangles_number; i++) {
-            float dist = rectangles[i].intersect(ray);
-            if (dist != 0 && (res == 0 || dist <= res)) {
-                res = dist;
+            tmp = rectangles[i].intersect(ray);
+            if (tmp.hit) {
+                if (!res.hit || res.dist > tmp.dist) {
+                    res = tmp;
+                }
             }
         }
         return res;
