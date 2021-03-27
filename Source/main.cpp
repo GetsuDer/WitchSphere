@@ -36,13 +36,13 @@ render(int size) {
     }
     float size_f = size;
     std::vector<Light> lights = std::vector<Light>();
-    lights.push_back(Light(Vec(0, 0, -size * 5), 0.8));
+    lights.push_back(Light(Vec(0, 0, -size * 5), 10000000));
     //lights.push_back(Light(Vec(0, 0, 0), 1)); 
     std::vector<Object*> scene = std::vector<Object*>();
 
     float me_dist = size * 2;
     Vec me(0, 0, -me_dist);
-    float side = size_f / 5;
+ /*   float side = size_f / 5;
     float small_side = side / 3;
     float big_side = size_f / 2;
 
@@ -59,6 +59,11 @@ render(int size) {
     scene.push_back(&cube);
     scene.push_back(&small_cube);
     scene.push_back(&big_cube);
+*/
+    //Pentagon p(Vec(size / 3, size / 3, 0), Vec(size / 10, 0, 0), Vec(0, 0, 1));
+    Dodekaedr d(Vec(size / 3, size / 3, 0), Vec(0, 0, 1), size / 8);
+    scene.push_back(&d);
+    //scene.push_back(&p);
 
     float base_light = 0.1;
     for (int x = 0; x < size; x++) {
@@ -79,7 +84,7 @@ render(int size) {
                         float distance = light_dir.len();
                         Color add(1, 1, 0);
                         add = add * angle;
-                        add = add * lights[i].intensity;
+                        add = add * (lights[i].intensity / (distance * distance));
                         buffer[x + y * size] = buffer[x + y * size] + add;
                     } else {
                         //std::cout << "no light " << intersected.dist << '\n';

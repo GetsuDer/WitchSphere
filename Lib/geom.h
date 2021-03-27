@@ -136,6 +136,7 @@ struct Cube : public Object {
 };
 
 struct Pentagon : public Object {
+    Pentagon() {}
     Pentagon(Vec center, Vec vec, Vec normal) {
         Vec a(center + vec);
         float angle = (2 * M_PI) / 5;
@@ -143,7 +144,6 @@ struct Pentagon : public Object {
         Vec c(center + rotateAroundAxis(vec, normal, angle * 2));
         Vec d(center + rotateAroundAxis(vec, normal, angle * 3));
         Vec e(center + rotateAroundAxis(vec, normal, angle * 4));
-        
         triangles_number = 3;
         triangles = new Triangle[3];
         triangles[0] = Triangle(a, b, c);
@@ -151,6 +151,55 @@ struct Pentagon : public Object {
         triangles[2] = Triangle(c, d, e);
     }
 
+};
+
+struct Dodekaedr : public Object {
+    int pentagon_number;
+    Pentagon *pentagons;
+
+    Dodekaedr(Vec center, Vec v, float a) {
+        pentagon_number = 12;
+        pentagons = new Pentagon[pentagon_number];
+        
+        float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
+        float r = a * (1 + sqrt(5)) * sqrt(3) / 4;
+        float d = sqrt(r * r - b * b);
+        float c = sqrt(b * b - (a / 2) * (a / 2));
+
+        v = v.normalize() * (-1);
+        Vec side = cross(v, v + Vec(1, 0, 0)).normalize();
+        pentagons[0] = Pentagon(center + (v * d), side * b, v);
+        for (int i = 0; i < 5; i++) {
+            Vec tmp1 = rotateAroundAxis(side, v, M_PI / 5 + i * (2 * M_PI / 5));   
+            Vec tmp2 = rotateAroundAxis(tmp1, cross(v, tmp1), acos(1 / sqrt(5)));
+        
+            Vec other_center = center + (v * d) + (tmp1 * c) + (tmp2 * c);
+            pentagons[i + 1] = Pentagon(other_center, tmp2 * b, other_center - center);
+        }
+
+        v = v * (-1);
+        side = rotateAroundAxis(side, v, (2 * M_PI) / 10);
+        pentagons[11] = Pentagon(center + (v * d), side * b, v);
+        for (int i = 0; i < 5; i++) {
+            Vec tmp1 = rotateAroundAxis(side, v, M_PI / 5 + i * (2 * M_PI / 5));   
+            Vec tmp2 = rotateAroundAxis(tmp1, cross(v, tmp1), acos(1 / sqrt(5)));
+            Vec other_center = center + (v * d) + (tmp1 * c) + (tmp2 * c);
+            pentagons[i + 6] = Pentagon(other_center, tmp2 * b, other_center - center);
+        }
+    }
+
+        
+    Collision intersect(Ray r) {
+        Collision tmp, res;
+        for (int i = 0; i < pentagon_number; i++) {
+            tmp = pentagons[i].intersect(r);
+            if (tmp.hit && (!res.hit || res.dist > tmp.dist)) {
+                res = tmp;
+            }
+        }
+        return res;
+    }
+    
 };
 
 struct Light {

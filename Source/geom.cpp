@@ -43,9 +43,9 @@ intersect(Triangle t, Ray r) {
     // normal vector
     Vec pvec = cross(r.dir, e2);
     float det = dot(e1, pvec);
-
+    float EPS = 1e-3;
     // || ploskosti
-    if (det < 1e-8 && det > -1e-8) {
+    if (det < EPS && det > -EPS) {
         return res;
     }
 
@@ -65,10 +65,9 @@ intersect(Triangle t, Ray r) {
     
     res.hit = true;
     res.dist = dot(e2, qvec) * inv_det;
-   // res.dist = abs(res.dist);
     res.normal = cross(e1, e2);
-    if (res.dist < 1e-3) {
-       // std::cout << "negative or small" << '\n';
+
+    if (res.dist < EPS) {
         res.hit = false;
     }
     return res;
