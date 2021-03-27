@@ -18,8 +18,13 @@ cross(Vec v1, Vec v2) {
 
 Vec 
 Vec::normalize() {
-        float len = sqrt( x * x + y * y + z * z);
+        float len = sqrt(x * x + y * y + z * z);
         return Vec(x / len, y / len, z / len);
+}
+
+float
+Vec::len() {
+    return sqrt(x * x + y * y + z * z);
 }
 
 Vec rotateAroundAxis(Vec vector, Vec axis, float angle) {

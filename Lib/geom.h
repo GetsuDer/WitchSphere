@@ -23,6 +23,7 @@ struct Vec {
     Vec operator*(const float a) const {
         return Vec(x * a, y * a, z * a);
     }
+    float len();
 }; 
 
 float dot(Vec, Vec);
@@ -125,4 +126,11 @@ struct Pentagon : public Object {
         triangles[2] = Triangle(c, d, e);
     }
 
+};
+
+struct Light {
+    Vec pos;
+    float intensity;
+    Light() {}
+    Light(Vec _pos, float _intensity) : pos(_pos), intensity(_intensity) {}
 };
