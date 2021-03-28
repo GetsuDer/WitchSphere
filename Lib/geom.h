@@ -1,6 +1,7 @@
 #include <cmath>
 #include <set>
 #include <iostream>
+#include <algorithm>
 
 struct Color {
     float r;
@@ -16,8 +17,12 @@ struct Color {
         return Color(r / f, g / f, b / f, a);
     }
 
-    const Color operator+(Color c) {
+    Color operator+(const Color c) const {
         return Color(r + c.r, g + c.g, b + c.b, a);
+    }
+
+    Color operator-(const Color c) const {
+        return Color(std::max(0.f, r - c.r), std::max(0.f, g - c.g), std::max(0.f, b - c.b), a);
     }
 };
 
