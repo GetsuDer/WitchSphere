@@ -54,7 +54,9 @@ struct Collision {
     Vec normal;
     Color color;
     float reflect;
-    Collision() : hit(false), dist(), normal(), color() {}        
+    float absorbtion;
+    bool real;
+    Collision() : real(true), hit(false), dist(), normal(), color() {}        
 };
 
 struct Triangle {
@@ -66,14 +68,18 @@ struct Triangle {
 Collision intersect(Triangle, Ray);
 
 struct Object {
+    bool real;
     int triangles_number;
     Triangle *triangles;
     Color color;
     float reflect;
+    float absorbtion;
     Object() {
         triangles_number = 0;
         triangles = NULL;
         color = Color(0, 0, 0, 1);
+        reflect = 1;
+        absorbtion = 0;
     }
     virtual Collision intersect(Ray r);
 };
@@ -102,8 +108,10 @@ struct Cube : public Object {
     int rectangles_number;
     Rectangle *rectangles;
 
-    Cube(Rectangle base, Color col, float ref) {
+    Cube(Rectangle base, Color col, float ref = 1, float absorb = 0, bool is_real = true) {
         reflect = ref;
+        real = is_real;
+        absorbtion = absorb;
         rectangles_number = 6;
         rectangles = new Rectangle[rectangles_number];
         rectangles[0] = base;
@@ -141,6 +149,8 @@ struct Cube : public Object {
         }
         res.color = color;
         res.reflect = reflect;
+        res.absorbtion = absorbtion;
+        res.real = real;
         return res;
     }
 };
@@ -167,8 +177,10 @@ struct Dodekaedr : public Object {
     int pentagon_number;
     Pentagon *pentagons;
 
-    Dodekaedr(Vec center, Vec v, float a, Color col, float ref) {
+    Dodekaedr(Vec center, Vec v, float a, Color col, float ref = 1, float absorb = 0, bool is_real = true) {
         reflect = ref;
+        real = is_real;
+        absorbtion = absorb;
         pentagon_number = 12;
         pentagons = new Pentagon[pentagon_number];
         
@@ -212,6 +224,8 @@ struct Dodekaedr : public Object {
         }
         res.color = color;
         res.reflect = reflect;
+        res.absorbtion = absorbtion;
+        res.real = real;
         return res;
     }
     
