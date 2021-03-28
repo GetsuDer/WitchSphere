@@ -18,11 +18,7 @@ struct Color {
     }
 
     Color operator+(const Color c) const {
-        return Color(r * a + c.r * (1 - a), g * a + c.g * (1 - a), b + c.b, a);
-    }
-
-    Color operator-(const Color c) const {
-        return Color(std::max(0.f, r - c.r), std::max(0.f, g - c.g), std::max(0.f, b - c.b), a);
+        return Color(r * a + c.r * c.a, g * a + c.g * c.a, b * a + c.b * c.a, (a + c.a) / 2) / (a + c.a);
     }
 };
 

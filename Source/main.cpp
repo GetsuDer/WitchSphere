@@ -62,7 +62,7 @@ render(int size) {
     }
     std::vector<Light> lights = std::vector<Light>();
     lights.push_back(Light(Vec(size * 3, 0, -size * 3), 40 * size * size));
-    lights.push_back(Light(Vec(size / 3, -size * 1.1, 0), 8 * size * size));
+    lights.push_back(Light(Vec(size / 3, -size * 1.1, 0), 10 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
@@ -74,7 +74,7 @@ render(int size) {
     Vec d_center(size / 3, size / 3, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 4.5;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.7), 1.05);
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.6), 1.03);
    
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
@@ -84,7 +84,7 @@ render(int size) {
     float side = size / 5; 
     Vec shift(size / 4, size / 4, size / 3);
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(base, Color(0, 1, 1, 1), 1);
+    Cube cube(base, Color(0, 1, 1, 0.3), 1);
 
     sphere.push_back(&d);
     scene.push_back(&cube);
