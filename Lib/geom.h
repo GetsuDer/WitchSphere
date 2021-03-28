@@ -18,7 +18,7 @@ struct Color {
     }
 
     Color operator+(const Color c) const {
-        return Color(r + c.r, g + c.g, b + c.b, a);
+        return Color(r * a + c.r * (1 - a), g * a + c.g * (1 - a), b + c.b, a);
     }
 
     Color operator-(const Color c) const {
@@ -56,7 +56,8 @@ struct Collision {
     bool hit;
     float dist;
     Vec normal;
-    Collision() : hit(false), dist(), normal() {}        
+    Color color;
+    Collision() : hit(false), dist(), normal(), color() {}        
 };
 
 struct Triangle {
@@ -70,9 +71,11 @@ Collision intersect(Triangle, Ray);
 struct Object {
     int triangles_number;
     Triangle *triangles;
+    Color color;
     Object() {
         triangles_number = 0;
         triangles = NULL;
+        color = Color(0, 0, 0, 1);
     }
     virtual Collision intersect(Ray r);
 };
@@ -101,7 +104,7 @@ struct Cube : public Object {
     int rectangles_number;
     Rectangle *rectangles;
 
-    Cube(Rectangle base) {
+    Cube(Rectangle base, Color col) {
         rectangles_number = 6;
         rectangles = new Rectangle[rectangles_number];
         rectangles[0] = base;
@@ -124,6 +127,7 @@ struct Cube : public Object {
         d = a + e2;
         rectangles[4] = Rectangle(a, b, c, d);
         rectangles[5] = rectangles[4] + e1;
+        color = col;
     }
 
     Collision intersect(Ray ray) {
@@ -136,6 +140,7 @@ struct Cube : public Object {
                 }
             }
         }
+        res.color = color;
         return res;
     }
 };
@@ -162,7 +167,7 @@ struct Dodekaedr : public Object {
     int pentagon_number;
     Pentagon *pentagons;
 
-    Dodekaedr(Vec center, Vec v, float a) {
+    Dodekaedr(Vec center, Vec v, float a, Color col) {
         pentagon_number = 12;
         pentagons = new Pentagon[pentagon_number];
         
@@ -191,6 +196,8 @@ struct Dodekaedr : public Object {
             Vec other_center = center + (v * d) + (tmp1 * c) + (tmp2 * c);
             pentagons[i + 6] = Pentagon(other_center, tmp2 * b, other_center - center);
         }
+        
+        color = col;
     }
 
         
@@ -202,6 +209,7 @@ struct Dodekaedr : public Object {
                 res = tmp;
             }
         }
+        res.color = color;
         return res;
     }
     

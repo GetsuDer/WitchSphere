@@ -85,6 +85,7 @@ Object::intersect(Ray ray) {
             res = tmp;
         }
     }
+    res.color = color;
     return res;
 }
 

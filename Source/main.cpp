@@ -62,12 +62,12 @@ render(int size) {
     float me_dist = size * 2;
     Vec me(0, 0, -me_dist);
     
-    Dodekaedr d(Vec(size / 3, size / 3, 0), Vec(0, 1, 0), size / 4.5);
+    Dodekaedr d(Vec(size / 3, size / 3, 0), Vec(0, 1, 0), size / 4.5, Color(1, 0, 0, 0.7));
    
     float side = size / 5; 
     Vec shift(size / 4, size / 4, size / 3);
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(base);
+    Cube cube(base, Color(0, 1, 1, 1));
 
     sphere.push_back(&d);
     scene.push_back(&cube);
@@ -75,7 +75,6 @@ render(int size) {
     float base_sphere_light = 0.2;
     float base_scene_light = 0.4;
     float EPS = 5;
-    float alpha = 0.7;
 
     for (int x = 0; x < size; x++) {
         for (int y = 0; y < size; y++) {
@@ -88,22 +87,23 @@ render(int size) {
                 // dodekaedr color
                 Vec intersect_sphere = ray.pos + (ray.dir * hit.dist);
                 float d_add = find_light(&sphere, &lights, intersect_sphere, hit);
-                buffer[x + y * size] = Color(0, 1, 0, 1) * (base_sphere_light * d_add);
+                buffer[x + y * size] = hit.color * (base_sphere_light * d_add);
+                
                 
                 Ray inside_ray = Ray(intersect_sphere, ray.dir);
                 Collision scene_hit = find_hit(&scene, inside_ray);
                 if (scene_hit.hit) {
                     Vec intersect = intersect_sphere + (ray.dir * scene_hit.dist);
                     float add = find_light(&scene, &lights, intersect, scene_hit);
-                    buffer[x + y * size] = (buffer[x + y * size] * alpha) + (Color(1, 0, 1, 1) * (base_scene_light * add * (1 - alpha)));
+                    buffer[x + y * size] = buffer[x + y * size] + scene_hit.color * (base_scene_light * add);
+                    
                 } else {
                     inside_ray.pos = inside_ray.pos + inside_ray.dir * EPS;
                     hit = find_hit(&sphere, inside_ray);
                     if (hit.hit) {
                         intersect_sphere = inside_ray.pos + (inside_ray.dir * hit.dist);
-                        //hit.normal = hit.normal * (-1);
                         d_add = find_light(&empty, &lights, intersect_sphere, hit);
-                        buffer[x + y * size] = (buffer[x + y * size] * alpha) + (Color(0, 1, 0, 1) * (base_sphere_light * d_add * (1 - alpha)));
+                        buffer[x + y * size] = buffer[x + y * size] + hit.color * (base_sphere_light * d_add);
                     }
                 }
             }
