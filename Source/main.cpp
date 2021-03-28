@@ -13,9 +13,10 @@ Collision
 find_hit(std::vector<Object *> *scene, Ray ray) {
     Collision hit, tmp;
     size_t len = scene->size();
+    float EPS = 1e-3;
     for (size_t i = 0; i < len; i++) {
         tmp = (*scene)[i]->intersect(ray);
-        if (tmp.hit && (!hit.hit || hit.dist > tmp.dist)) {
+        if (tmp.hit && (!hit.hit || hit.dist - tmp.dist > EPS)) {
             hit = tmp;
         }
     }
@@ -37,6 +38,14 @@ find_light(std::vector<Object *> *scene, std::vector<Light> *lights, Vec interse
         }
     }
     return add;
+}
+
+Vec
+reflect_vec(Vec v, Vec normal, float reflect) {
+    float alpha = acos(dot(v.normalize(), normal.normalize() * (-1)));
+    float beta = asin(sin(alpha) / reflect);
+    Vec axis = cross(v, normal);
+    return rotateAroundAxis(v, axis, beta - alpha);
 }
 
 void 
@@ -62,15 +71,47 @@ render(int size) {
     float me_dist = size * 2;
     Vec me(0, 0, -me_dist);
     
-    Dodekaedr d(Vec(size / 3, size / 3, 0), Vec(0, 1, 0), size / 4.5, Color(1, 0, 0, 0.7));
+    Vec d_center(size / 3, size / 3, 0);
+    Vec d_normal(0, 1, 0);
+    float d_size = size / 4.5;
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.7), 1.05);
    
+    float a = d_size;
+    float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
+    float r = a * (1 + sqrt(5)) * sqrt(3) / 4;
+    float k = sqrt(r * r - b * b);
+
     float side = size / 5; 
     Vec shift(size / 4, size / 4, size / 3);
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(base, Color(0, 1, 1, 1));
+    Cube cube(base, Color(0, 1, 1, 1), 1);
 
     sphere.push_back(&d);
     scene.push_back(&cube);
+
+    // podstavka
+
+    float p_side = size / 4;
+    Vec p_shift = d_center + (d_normal * k);
+    Rectangle* p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
+    Cube* p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1);
+    sphere.push_back(p_cube);
+
+    p_shift.z += p_side;
+    p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
+    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1);
+    sphere.push_back(p_cube);
+
+    p_shift.z -= p_side;
+    p_shift.x -= p_side;
+    p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
+    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1);
+    sphere.push_back(p_cube);
+
+    p_shift.z += p_side;
+    p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
+    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1);
+    sphere.push_back(p_cube);
 
     float base_sphere_light = 0.2;
     float base_scene_light = 0.4;
@@ -90,7 +131,7 @@ render(int size) {
                 buffer[x + y * size] = hit.color * (base_sphere_light * d_add);
                 
                 
-                Ray inside_ray = Ray(intersect_sphere, ray.dir);
+                Ray inside_ray = Ray(intersect_sphere, reflect_vec(ray.dir, hit.normal, hit.reflect));
                 Collision scene_hit = find_hit(&scene, inside_ray);
                 if (scene_hit.hit) {
                     Vec intersect = intersect_sphere + (ray.dir * scene_hit.dist);

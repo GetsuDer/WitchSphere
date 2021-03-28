@@ -43,7 +43,7 @@ intersect(Triangle t, Ray r) {
     // normal vector
     Vec pvec = cross(r.dir, e2);
     float det = dot(e1, pvec);
-    float EPS = 1e-1;
+    float EPS = 1;
     // || ploskosti
     if (det < EPS && det > -EPS) {
         return res;

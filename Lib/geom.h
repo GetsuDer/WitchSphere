@@ -57,6 +57,7 @@ struct Collision {
     float dist;
     Vec normal;
     Color color;
+    float reflect;
     Collision() : hit(false), dist(), normal(), color() {}        
 };
 
@@ -72,6 +73,7 @@ struct Object {
     int triangles_number;
     Triangle *triangles;
     Color color;
+    float reflect;
     Object() {
         triangles_number = 0;
         triangles = NULL;
@@ -104,7 +106,8 @@ struct Cube : public Object {
     int rectangles_number;
     Rectangle *rectangles;
 
-    Cube(Rectangle base, Color col) {
+    Cube(Rectangle base, Color col, float ref) {
+        reflect = ref;
         rectangles_number = 6;
         rectangles = new Rectangle[rectangles_number];
         rectangles[0] = base;
@@ -141,6 +144,7 @@ struct Cube : public Object {
             }
         }
         res.color = color;
+        res.reflect = reflect;
         return res;
     }
 };
@@ -167,7 +171,8 @@ struct Dodekaedr : public Object {
     int pentagon_number;
     Pentagon *pentagons;
 
-    Dodekaedr(Vec center, Vec v, float a, Color col) {
+    Dodekaedr(Vec center, Vec v, float a, Color col, float ref) {
+        reflect = ref;
         pentagon_number = 12;
         pentagons = new Pentagon[pentagon_number];
         
@@ -210,6 +215,7 @@ struct Dodekaedr : public Object {
             }
         }
         res.color = color;
+        res.reflect = reflect;
         return res;
     }
     
