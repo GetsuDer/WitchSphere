@@ -52,8 +52,8 @@ render(int size) {
         }
     }
     std::vector<Light> lights = std::vector<Light>();
-    lights.push_back(Light(Vec(size * 3, 0, -size * 3), 10000000));
-    lights.push_back(Light(Vec(size / 3, -size * 1.1, 0), 2000000));
+    lights.push_back(Light(Vec(size * 3, 0, -size * 3), 40 * size * size));
+    lights.push_back(Light(Vec(size / 3, -size * 1.1, 0), 8 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
