@@ -62,7 +62,7 @@ render(int size) {
     }
     std::vector<Light> lights = std::vector<Light>();
     lights.push_back(Light(Vec(size * 3, 0, -size * 3), 40 * size * size));
-    lights.push_back(Light(Vec(size / 3, -size * 1.1, 0), 10 * size * size));
+    lights.push_back(Light(Vec(-size / 3, -size * 1.1, 0), 20 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
@@ -74,7 +74,7 @@ render(int size) {
     Vec d_center(size / 3, size / 3, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 4.5;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.6), 1.03);
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.9), 1.03);
    
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
@@ -133,10 +133,11 @@ render(int size) {
                 
                 Ray inside_ray = Ray(intersect_sphere, reflect_vec(ray.dir, hit.normal, hit.reflect));
                 Collision scene_hit = find_hit(&scene, inside_ray);
+                float pogl = exp((-scene_hit.dist / size) * 2);
                 if (scene_hit.hit) {
                     Vec intersect = intersect_sphere + (ray.dir * scene_hit.dist);
                     float add = find_light(&scene, &lights, intersect, scene_hit);
-                    buffer[x + y * size] = buffer[x + y * size] + scene_hit.color * (base_scene_light * add);
+                    buffer[x + y * size] = buffer[x + y * size] + scene_hit.color * (base_scene_light * add * pogl);
                     
                 } else {
                     inside_ray.pos = inside_ray.pos + inside_ray.dir * EPS;
@@ -144,7 +145,7 @@ render(int size) {
                     if (hit.hit) {
                         intersect_sphere = inside_ray.pos + (inside_ray.dir * hit.dist);
                         d_add = find_light(&empty, &lights, intersect_sphere, hit);
-                        buffer[x + y * size] = buffer[x + y * size] + hit.color * (base_sphere_light * d_add);
+                        buffer[x + y * size] = buffer[x + y * size] + hit.color * (base_sphere_light * d_add * pogl);
                     }
                 }
             }
