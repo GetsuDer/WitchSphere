@@ -159,6 +159,8 @@ render(int size) {
             
             if (hit.hit) {
                 buffer[x + y * size] = hit.color;
+            } else {
+                buffer[x + y * size] = Color(cos((float)y / size + 0.5), cos((float)y / size + 0.5), cos((float)y / size + 0.5), 1);
             }
         }
     }
