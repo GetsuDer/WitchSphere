@@ -6,8 +6,11 @@
 
 #include "geom.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
 float SIZE = 1;
 
 Vec refract_vec(Vec, Vec, float);
@@ -152,7 +155,7 @@ render(int size) {
     Vec d_center(size / 2, size / 2, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 3;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.1, 0.2, 1.3, true);
+    Dodekaedr d(d_center, d_normal, d_size, Color(158.f/255, 95.f/255, 189.f/255, 0.5), 1.1, 0.2, 1.3, true);
        
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
@@ -161,34 +164,37 @@ render(int size) {
 
     float side = size / 5; 
     Vec shift(d_center - Vec(side / 2, 0, 0));
-    //size / 4, size / 4, size / 3);
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(base, Color(0, 0, 1, 0.3), 1, 0, 0, false);
-
-    scene.push_back(&cube);
+    Cube* cube = new Cube(base, Color(0, 0, 1, 0.3), 1, 0, 0, false);
+    int w, h, n;
+    cube->texture = stbi_load("Resources/diamond_ore.jpg", &w, &h, &n, 3);
+    cube->w = w;
+    cube->h = h;
+    scene.push_back(cube);
     scene.push_back(&d);
     // podstavka
 
+    Color p_color(101.f/255, 131.f/255, 50.f/255, 1);
     float p_side = size / 3;
     Vec p_shift = d_center + (d_normal * k);
     Rectangle* p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    Cube* p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
+    Cube* p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
     scene.push_back(p_cube);
 
     p_shift.z += p_side;
     p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
+    p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
     scene.push_back(p_cube);
 
     p_shift.z -= p_side;
     p_shift.x -= p_side;
     p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
+    p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
     scene.push_back(p_cube);
 
     p_shift.z += p_side;
     p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
+    p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
     scene.push_back(p_cube);
 
     for (int x = 0; x < size; x++) {

@@ -3,6 +3,8 @@
 #include <iostream>
 #include <algorithm>
 
+#include "stb_image.h"
+
 struct Color {
     float r;
     float g;
@@ -114,8 +116,16 @@ struct Rectangle : public Object {
 struct Cube : public Object {
     int rectangles_number;
     Rectangle *rectangles;
+    unsigned char *texture;
+    int h, w;
+    ~Cube() {
+        if (texture) {
+            stbi_image_free(texture);
+        }
+    }
 
     Cube(Rectangle base, Color col, float refract = 1, float reflect = 0, float absorb = 0, bool is_real = true) {
+        texture = NULL;
         refraction = refract;
         reflection = reflect;
         absorbtion = absorb;
@@ -149,15 +159,32 @@ struct Cube : public Object {
 
     Collision intersect(Ray ray) {
         Collision res, tmp;
+        int rect_n = -1;
         for (int i = 0; i < rectangles_number; i++) {
             tmp = rectangles[i].intersect(ray);
             if (tmp.hit) {
                 if (!res.hit || res.dist > tmp.dist) {
                     res = tmp;
+                    rect_n = i;
                 }
             }
         }
-        res.color = color;
+        if (!res.hit) {
+            return res;
+        }
+        if (!texture) {
+            res.color = color;
+        } else {
+            Vec y_vec = rectangles[rect_n].triangles[0].b - rectangles[rect_n].triangles[0].a;
+            Vec x_vec = rectangles[rect_n].triangles[0].c - rectangles[rect_n].triangles[0].b;
+            Vec intersect = (ray.pos + (ray.dir * res.dist)) - rectangles[rect_n].triangles[0].a;
+            int y = intersect.y / (y_vec.len() / h);
+            int x = intersect.x / (x_vec.len() / w);
+            float red = texture[(x + y * w) * 3];
+            float green = texture[(x + y * w) * 3 + 1];
+            float blue = texture[(x + y * w) * 3 + 2];
+            res.color = Color(red / 255, green / 255, blue / 255, 1);
+        }
         res.refraction = refraction;
         res.reflection = reflection;
         res.absorbtion = absorbtion;
