@@ -92,14 +92,11 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
                 float light_add = 0;
                 
                 for (size_t i = 0; i < lights_len; i++) {
-                    Vec light_dir = (*lights)[i].pos - first_intersect;
-                    
-                    float normal_to_light = abs(cross((*lights)[i].pos - reflected_ray.pos, reflected_ray.dir).len() / reflected_ray.dir.len());
-                    if (normal_to_light < 30) {
-                        std::cout << normal_to_light << '\n'; 
-                        float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
-                        light_add += angle * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
-                    }
+                    Vec light_dir = (*lights)[i].pos - reflected_ray.pos;
+                    float light_cos = abs(dot(light_dir.normalize(), reflected_ray.dir.normalize()));
+                    int N = 50;
+                    float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
+                    light_add += pow(light_cos, N) * angle * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
                 }
                 hit.color = (hit.color * (1 - hit.reflection)) + (Color(1, 1, 1, 1) *  (light_add * hit.reflection));
 
@@ -121,7 +118,10 @@ refract_vec(Vec v, Vec normal, float refract) {
 
 Vec
 reflect_vec(Vec v, Vec normal) {
-    return v * dot(v, normal) * 2 - v;
+   // return v * dot(v, normal) * 2 - v;
+   v = v.normalize();
+   normal = normal.normalize();
+   return normal * (abs(dot(v, normal)) * 2) - v;
 }
 
 void 
@@ -137,21 +137,22 @@ render(int size) {
             buffer[x + y * size] = Color(0, 0, 0, 1.f);
         }
     }
+    float me_dist = size * 2;
+    Vec me(size / 2, size / 2, -me_dist);
+    
     std::vector<Light> lights = std::vector<Light>();
-    lights.push_back(Light(Vec(0, 0, -size * 1.5), 1.5 * size * size));
-  //  lights.push_back(Light(Vec(-size * 2, size, 0), 10 * size * size));
+    lights.push_back(Light(Vec(size / 2, size / 4, -me_dist), 4 * size * size));
+    lights.push_back(Light(Vec(size / 2, 0, 0), 0.1 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
     std::vector<Object*> empty = std::vector<Object*>();
 
-    float me_dist = size * 2;
-    Vec me(0, 0, -me_dist);
     
-    Vec d_center(size / 3, size / 3, 0);
+    Vec d_center(size / 2, size / 2, 0);
     Vec d_normal(0, 1, 0);
-    float d_size = size / 4.5;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.1, 0.5, 1.3, true);
+    float d_size = size / 3;
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.1, 0.2, 1.3, true);
        
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
@@ -159,15 +160,16 @@ render(int size) {
     float k = sqrt(r * r - b * b);
 
     float side = size / 5; 
-    Vec shift(size / 4, size / 4, size / 3);
+    Vec shift(d_center - Vec(side / 2, 0, 0));
+    //size / 4, size / 4, size / 3);
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(base, Color(0, 0, 1, 1), 1, 0, 0, false);
+    Cube cube(base, Color(0, 0, 1, 0.3), 1, 0, 0, false);
 
     scene.push_back(&cube);
     scene.push_back(&d);
     // podstavka
 
-    float p_side = size / 4;
+    float p_side = size / 3;
     Vec p_shift = d_center + (d_normal * k);
     Rectangle* p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
     Cube* p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
@@ -191,7 +193,7 @@ render(int size) {
 
     for (int x = 0; x < size; x++) {
         for (int y = 0; y < size; y++) {
-            Vec dir = (Vec(x, y, size) - me).normalize();
+            Vec dir = (Vec(x, y, 0) - me).normalize();
             Ray ray = Ray(me, dir);
             Collision hit = trace_ray(&scene, &lights, ray, 2);
             
