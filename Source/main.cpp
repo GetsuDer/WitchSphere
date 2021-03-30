@@ -37,7 +37,7 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
             tmp = trace_ray(scene, lights, second, deep - 1);
             if (tmp.hit) {
                 light = find_light(scene, lights, second.pos + (second.dir * (tmp.dist + 5)), tmp, tmp.real);
-                float pogl = exp(-hit.absorbtion * (tmp.dist / SIZE) / 2);
+                float pogl = exp(-(hit.absorbtion * tmp.dist * 4 / SIZE));
                 hit.color = hit.color + (tmp.color * (pogl * light));
             }
         }
@@ -53,7 +53,7 @@ find_light(std::vector<Object *> *scene, std::vector<Light> *lights, Vec interse
     float EPS = 1e-3;
     for (size_t i = 0; i < light_len; i++) {
         Vec light_dir = (*lights)[i].pos - intersect;
-        Ray to_light(intersect, light_dir.normalize());
+        Ray to_light(intersect + light_dir.normalize() * 3, light_dir.normalize());
         Collision intersected, tmp;
         for (size_t j = 0; j < scene->size(); j++) {
             tmp = (*scene)[j]->intersect(to_light);
@@ -71,7 +71,9 @@ find_light(std::vector<Object *> *scene, std::vector<Light> *lights, Vec interse
         float distance = light_dir.len();
         float light = angle * ((*lights)[i].intensity / (distance * distance));
         if (intersected.hit) {
+            std::cout << distance << ' ' << intersected.dist << '\n';
             light *= (1 - intersected.color.a);
+            //light *= intersected.color.a;
         }
         add += light;
     }
@@ -100,7 +102,7 @@ render(int size) {
         }
     }
     std::vector<Light> lights = std::vector<Light>();
-    lights.push_back(Light(Vec(0, 0, -size * 3), 3 * size * size));
+    lights.push_back(Light(Vec(0, 0, -size * 3), 4 * size * size));
     lights.push_back(Light(Vec(-size, -size, 0), 4 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
@@ -113,7 +115,7 @@ render(int size) {
     Vec d_center(size / 3, size / 3, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 4.5;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.02, 0.7, true);
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.02, 1.3, true);
    
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
