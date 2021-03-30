@@ -18,7 +18,7 @@ struct Color {
     }
 
     Color operator+(const Color c) const {
-        return Color(r * a + c.r * c.a, g * a + c.g * c.a, b * a + c.b * c.a, (a + c.a) / 2) / (a + c.a);
+        return Color(r + c.r, g + c.g, b + c.b, a);
     }
 };
 

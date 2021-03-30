@@ -10,7 +10,7 @@
 #include "stb_image_write.h"
 float SIZE = 1;
 
-Vec reflect_vec(Vec, Vec, float);
+Vec refract_vec(Vec, Vec, float);
 
 Collision
 trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int deep) {
@@ -35,18 +35,19 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
         for (size_t i = 0; i < lights_len; i++) {
             Vec light_dir = (*lights)[i].pos - intersect;
             // for each light do, while not wall
-            Ray to_light(intersect, light_dir.normalize());
+            Ray to_light(intersect - (ray.dir.normalize()), light_dir.normalize());
             float way_coef = 0;
-            float distance = light_dir.len();
-            
             bool result = true;
             float in_a = 1;
             while (true) {
                 Collision intersected, tmp;
                 for (size_t j = 0; j < len; j++) {
                     tmp = (*scene)[j]->intersect(to_light);
-                    if (!intersected.hit || (intersected.dist - tmp.dist > EPS)) {
-                        intersected = tmp;
+                    if (tmp.hit && tmp.real == hit.real) {
+                        if (!intersected.hit || (intersected.dist - tmp.dist > EPS)) {
+                            intersected = tmp;
+                        }
+                    } else {
                     }
                 }
                 if (!intersected.hit) {
@@ -55,6 +56,7 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
                 } else { // walked into something
                     if (intersected.color.a < 1) {
                         way_coef += in_a * intersected.dist;
+                        to_light.pos = to_light.pos + (to_light.dir * intersected.dist);
                         // here all is bad, because i dont know, inside or outside of object we went
                         if (in_a < 1) {
                             in_a = 1; // kostyl`
@@ -74,16 +76,21 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
             }        
         }  
         hit.color = hit.color * add;
-        float pogl = exp(-(hit.absorbtion * tmp.dist * 4 / SIZE));
+        if (hit.color.a < 1) { // through object
+            Ray through_ray(ray.pos + (ray.dir * (hit.dist + 1)), refract_vec(ray.dir, hit.normal, hit.refraction));
+            Collision through = trace_ray(scene, lights, through_ray, deep - 1);
+            hit.color = (hit.color * hit.color.a) + (through.color * (1 - hit.color.a));
+        }
+    
     }
     
     return hit;
 }
 
 Vec
-reflect_vec(Vec v, Vec normal, float reflect) {
+refract_vec(Vec v, Vec normal, float refract) {
     float alpha = acos(dot(v.normalize(), normal.normalize() * (-1)));
-    float beta = asin(sin(alpha) / reflect);
+    float beta = asin(sin(alpha) / refract);
     Vec axis = cross(v, normal);
     return rotateAroundAxis(v, axis, beta - alpha);
 }
@@ -103,7 +110,7 @@ render(int size) {
     }
     std::vector<Light> lights = std::vector<Light>();
     lights.push_back(Light(Vec(0, 0, -size * 1.5), 1.5 * size * size));
-    lights.push_back(Light(Vec(-size * 3, size, 0), 5 * size * size));
+    lights.push_back(Light(Vec(-size * 3, size, 0), 4 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
@@ -115,7 +122,7 @@ render(int size) {
     Vec d_center(size / 3, size / 3, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 4.5;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.02, 0, 1.3, true);
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1, 0, 1.3, true);
    
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
