@@ -11,6 +11,7 @@
 float SIZE = 1;
 
 Vec refract_vec(Vec, Vec, float);
+Vec reflect_vec(Vec, Vec);
 
 Collision
 trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int deep) {
@@ -28,9 +29,10 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
         }
     }
     if (hit.hit) {
-        Vec intersect(ray.pos + (ray.dir * hit.dist));
-        // light for THIS point
         size_t lights_len = lights->size();
+        Vec intersect(ray.pos + (ray.dir * hit.dist));
+        Vec first_intersect(intersect);
+        // light for THIS point
         float add = 0;
         for (size_t i = 0; i < lights_len; i++) {
             Vec light_dir = (*lights)[i].pos - intersect;
@@ -81,6 +83,29 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
             Collision through = trace_ray(scene, lights, through_ray, deep - 1);
             hit.color = (hit.color * hit.color.a) + (through.color * (1 - hit.color.a));
         }
+        if (hit.reflection > 0) { // other ray
+            Ray reflected_ray(first_intersect, reflect_vec(ray.dir, hit.normal));
+            Collision reflected = trace_ray(scene, lights, reflected_ray, deep - 1);
+            if (reflected.hit) {
+                hit.color = (hit.color * (1 - hit.reflection)) + (reflected.color * hit.reflection);
+            } else { // may be there is a light somewhere nearby?
+                float light_add = 0;
+                for (size_t i = 0; i < lights_len; i++) {
+                    Vec light_dir = (*lights)[i].pos - first_intersect;
+                    Vec current_dir = reflected_ray.pos + (reflected_ray.dir.normalize() * light_dir.len());
+                  //  float light_angle = abs(dot(light_dir.normalize(), current_dir.normalize()));
+                    //float angle_EPS = 0.1;
+                    float len_diff = (current_dir - light_dir).len(); 
+                    if (len_diff < 130) {
+                        std::cout << len_diff << '\n';   
+                        float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
+                        light_add += angle * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
+                    }
+                }
+                hit.color = (hit.color * (1 - hit.reflection)) + (Color(1, 1, 1, 1) *  (light_add * hit.reflection));
+
+            }
+        }
     
     }
     
@@ -93,6 +118,11 @@ refract_vec(Vec v, Vec normal, float refract) {
     float beta = asin(sin(alpha) / refract);
     Vec axis = cross(v, normal);
     return rotateAroundAxis(v, axis, beta - alpha);
+}
+
+Vec
+reflect_vec(Vec v, Vec normal) {
+    return v * dot(v, normal) * 2 - v;
 }
 
 void 
@@ -110,7 +140,7 @@ render(int size) {
     }
     std::vector<Light> lights = std::vector<Light>();
     lights.push_back(Light(Vec(0, 0, -size * 1.5), 1.5 * size * size));
-    lights.push_back(Light(Vec(-size * 3, size, 0), 4 * size * size));
+    lights.push_back(Light(Vec(-size * 2, size, 0), 10 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
@@ -122,8 +152,8 @@ render(int size) {
     Vec d_center(size / 3, size / 3, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 4.5;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1, 0, 1.3, true);
-   
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.1, 0.5, 1.3, true);
+       
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
     float r = a * (1 + sqrt(5)) * sqrt(3) / 4;
