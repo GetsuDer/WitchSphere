@@ -53,7 +53,8 @@ struct Collision {
     float dist;
     Vec normal;
     Color color;
-    float reflect;
+    float refraction;
+    float reflection;
     float absorbtion;
     bool real;
     Collision() : real(true), hit(false), dist(), normal(), color() {}        
@@ -72,13 +73,15 @@ struct Object {
     int triangles_number;
     Triangle *triangles;
     Color color;
-    float reflect;
-    float absorbtion;
+    float refraction; // преломление
+    float reflection; // отражение 
+    float absorbtion; // полгощение
     Object() {
         triangles_number = 0;
         triangles = NULL;
         color = Color(0, 0, 0, 1);
-        reflect = 1;
+        reflection = 0;
+        refraction = 1;
         absorbtion = 0;
     }
     virtual Collision intersect(Ray r);
@@ -108,10 +111,13 @@ struct Cube : public Object {
     int rectangles_number;
     Rectangle *rectangles;
 
-    Cube(Rectangle base, Color col, float ref = 1, float absorb = 0, bool is_real = true) {
-        reflect = ref;
-        real = is_real;
+    Cube(Rectangle base, Color col, float refract = 1, float reflect = 0, float absorb = 0, bool is_real = true) {
+        refraction = refract;
+        reflection = reflect;
         absorbtion = absorb;
+
+        real = is_real;
+
         rectangles_number = 6;
         rectangles = new Rectangle[rectangles_number];
         rectangles[0] = base;
@@ -148,7 +154,8 @@ struct Cube : public Object {
             }
         }
         res.color = color;
-        res.reflect = reflect;
+        res.refraction = refraction;
+        res.reflection = reflection;
         res.absorbtion = absorbtion;
         res.real = real;
         return res;
@@ -177,10 +184,13 @@ struct Dodekaedr : public Object {
     int pentagon_number;
     Pentagon *pentagons;
 
-    Dodekaedr(Vec center, Vec v, float a, Color col, float ref = 1, float absorb = 0, bool is_real = true) {
-        reflect = ref;
-        real = is_real;
+    Dodekaedr(Vec center, Vec v, float a, Color col, float refract = 1, float reflect = 0, float absorb = 0, bool is_real = true) {
+        refraction = refract;
+        reflection = reflect;
         absorbtion = absorb;
+        
+        real = is_real;
+        
         pentagon_number = 12;
         pentagons = new Pentagon[pentagon_number];
         
@@ -223,7 +233,8 @@ struct Dodekaedr : public Object {
             }
         }
         res.color = color;
-        res.reflect = reflect;
+        res.refraction = refraction;
+        res.reflection = reflection;
         res.absorbtion = absorbtion;
         res.real = real;
         return res;

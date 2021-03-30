@@ -10,7 +10,6 @@
 #include "stb_image_write.h"
 float SIZE = 1;
 
-float find_light(std::vector<Object *>*, std::vector<Light> *, Vec, Collision, bool);
 Vec reflect_vec(Vec, Vec, float);
 
 Collision
@@ -30,54 +29,55 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
     }
     if (hit.hit) {
         Vec intersect(ray.pos + (ray.dir * hit.dist));
-        float light = find_light(scene, lights, intersect, hit, hit.real);
-        hit.color = hit.color * light;
-        if (hit.color.a < 1) {
-            Ray second = Ray(intersect, reflect_vec(ray.dir, hit.normal, hit.reflect));
-            tmp = trace_ray(scene, lights, second, deep - 1);
-            if (tmp.hit) {
-                light = find_light(scene, lights, second.pos + (second.dir * (tmp.dist + 5)), tmp, tmp.real);
-                float pogl = exp(-(hit.absorbtion * tmp.dist * 4 / SIZE));
-                hit.color = hit.color + (tmp.color * (pogl * light));
+        // light for THIS point
+        size_t lights_len = lights->size();
+        float add = 0;
+        for (size_t i = 0; i < lights_len; i++) {
+            Vec light_dir = (*lights)[i].pos - intersect;
+            // for each light do, while not wall
+            Ray to_light(intersect, light_dir.normalize());
+            float way_coef = 0;
+            float distance = light_dir.len();
+            
+            bool result = true;
+            float in_a = 1;
+            while (true) {
+                Collision intersected, tmp;
+                for (size_t j = 0; j < len; j++) {
+                    tmp = (*scene)[j]->intersect(to_light);
+                    if (!intersected.hit || (intersected.dist - tmp.dist > EPS)) {
+                        intersected = tmp;
+                    }
+                }
+                if (!intersected.hit) {
+                    way_coef += in_a * ((*lights)[i].pos - to_light.pos).len();
+                    break;
+                } else { // walked into something
+                    if (intersected.color.a < 1) {
+                        way_coef += in_a * intersected.dist;
+                        // here all is bad, because i dont know, inside or outside of object we went
+                        if (in_a < 1) {
+                            in_a = 1; // kostyl`
+                        } else {
+                            in_a = intersected.color.a;
+                        }
+                    } else {
+                        result = false;
+                        break;
+                    }
+                }
             }
-        }
+            if (result) {
+                float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
+                float light = angle * ((*lights)[i].intensity / (way_coef * way_coef));
+                add += light;
+            }        
+        }  
+        hit.color = hit.color * add;
+        float pogl = exp(-(hit.absorbtion * tmp.dist * 4 / SIZE));
     }
     
     return hit;
-}
-
-float
-find_light(std::vector<Object *> *scene, std::vector<Light> *lights, Vec intersect, Collision hit, bool real) {
-    size_t light_len = lights->size();
-    float add = 0;
-    float EPS = 1e-3;
-    for (size_t i = 0; i < light_len; i++) {
-        Vec light_dir = (*lights)[i].pos - intersect;
-        Ray to_light(intersect + light_dir.normalize() * 3, light_dir.normalize());
-        Collision intersected, tmp;
-        for (size_t j = 0; j < scene->size(); j++) {
-            tmp = (*scene)[j]->intersect(to_light);
-            if (tmp.real == real) {
-                if (!intersected.hit || (intersected.dist - tmp.dist > EPS)) {
-                    intersected = tmp;
-                }
-            } else {
-                std::cout << "DIff\n";
-            }
-        }
-
-        float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
-
-        float distance = light_dir.len();
-        float light = angle * ((*lights)[i].intensity / (distance * distance));
-        if (intersected.hit) {
-            std::cout << distance << ' ' << intersected.dist << '\n';
-            light *= (1 - intersected.color.a);
-            //light *= intersected.color.a;
-        }
-        add += light;
-    }
-    return add;
 }
 
 Vec
@@ -102,8 +102,8 @@ render(int size) {
         }
     }
     std::vector<Light> lights = std::vector<Light>();
-    lights.push_back(Light(Vec(0, 0, -size * 3), 4 * size * size));
-    lights.push_back(Light(Vec(-size, -size, 0), 4 * size * size));
+    lights.push_back(Light(Vec(0, 0, -size * 1.5), 1.5 * size * size));
+    lights.push_back(Light(Vec(-size * 3, size, 0), 5 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
@@ -115,7 +115,7 @@ render(int size) {
     Vec d_center(size / 3, size / 3, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 4.5;
-    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.02, 1.3, true);
+    Dodekaedr d(d_center, d_normal, d_size, Color(1, 0, 0, 0.5), 1.02, 0, 1.3, true);
    
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
@@ -125,7 +125,7 @@ render(int size) {
     float side = size / 5; 
     Vec shift(size / 4, size / 4, size / 3);
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(base, Color(0, 0, 1, 1), 1, false);
+    Cube cube(base, Color(0, 0, 1, 1), 1, 0, 0, false);
 
     scene.push_back(&cube);
     scene.push_back(&d);
@@ -134,23 +134,23 @@ render(int size) {
     float p_side = size / 4;
     Vec p_shift = d_center + (d_normal * k);
     Rectangle* p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    Cube* p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, true);
+    Cube* p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
     scene.push_back(p_cube);
 
     p_shift.z += p_side;
     p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, true);
+    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
     scene.push_back(p_cube);
 
     p_shift.z -= p_side;
     p_shift.x -= p_side;
     p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, true);
+    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
     scene.push_back(p_cube);
 
     p_shift.z += p_side;
     p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, true);
+    p_cube = new Cube(*p_base, Color(0, 1, 0, 1), 1, 0, 0, true);
     scene.push_back(p_cube);
 
     for (int x = 0; x < size; x++) {
