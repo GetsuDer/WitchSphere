@@ -35,6 +35,10 @@ struct Vec {
     Vec operator*(const float a) const {
         return Vec(x * a, y * a, z * a);
     }
+    Vec operator/(const float a) const {
+        return Vec(x / a, y / a, z / a);
+    }
+
     float len();
 }; 
 

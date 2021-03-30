@@ -90,14 +90,13 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
                 hit.color = (hit.color * (1 - hit.reflection)) + (reflected.color * hit.reflection);
             } else { // may be there is a light somewhere nearby?
                 float light_add = 0;
+                
                 for (size_t i = 0; i < lights_len; i++) {
                     Vec light_dir = (*lights)[i].pos - first_intersect;
-                    Vec current_dir = reflected_ray.pos + (reflected_ray.dir.normalize() * light_dir.len());
-                  //  float light_angle = abs(dot(light_dir.normalize(), current_dir.normalize()));
-                    //float angle_EPS = 0.1;
-                    float len_diff = (current_dir - light_dir).len(); 
-                    if (len_diff < 130) {
-                        std::cout << len_diff << '\n';   
+                    
+                    float normal_to_light = abs(cross((*lights)[i].pos - reflected_ray.pos, reflected_ray.dir).len() / reflected_ray.dir.len());
+                    if (normal_to_light < 30) {
+                        std::cout << normal_to_light << '\n'; 
                         float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
                         light_add += angle * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
                     }
@@ -140,7 +139,7 @@ render(int size) {
     }
     std::vector<Light> lights = std::vector<Light>();
     lights.push_back(Light(Vec(0, 0, -size * 1.5), 1.5 * size * size));
-    lights.push_back(Light(Vec(-size * 2, size, 0), 10 * size * size));
+  //  lights.push_back(Light(Vec(-size * 2, size, 0), 10 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
