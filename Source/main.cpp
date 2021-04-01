@@ -13,11 +13,11 @@
 
 float SIZE = 1;
 
-Vec refract_vec(Vec, Vec, float);
+Vec refract_vec(Vec, Vec, float, float i_r = 1);
 Vec reflect_vec(Vec, Vec);
 
 Collision
-trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int deep) {
+trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int deep, int reality) {
     Collision hit, tmp;
     if (deep <= 0) {
         return hit;
@@ -28,7 +28,9 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
     for (size_t i = 0; i < len; i++) {
         tmp = (*scene)[i]->intersect(ray);
         if (tmp.hit && (!hit.hit || hit.dist - tmp.dist > EPS)) {
-            hit = tmp;
+            if ((reality == -1) || (tmp.real == reality)) {
+                hit = tmp;
+            }
         }
     }
     if (hit.hit) {
@@ -44,13 +46,16 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
             float way_coef = 0;
             bool result = true;
             float in_a = 1;
+            std::vector<size_t> in_objects = std::vector<size_t>();
             while (true) {
                 Collision intersected, tmp;
+                size_t object = -1;
                 for (size_t j = 0; j < len; j++) {
                     tmp = (*scene)[j]->intersect(to_light);
                     if (tmp.hit && tmp.real == hit.real) {
                         if (!intersected.hit || (intersected.dist - tmp.dist > EPS)) {
                             intersected = tmp;
+                            object = j;
                         }
                     } else {
                     }
@@ -62,10 +67,16 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
                     if (intersected.color.a < 1) {
                         way_coef += in_a * intersected.dist;
                         to_light.pos = to_light.pos + (to_light.dir * intersected.dist);
-                        // here all is bad, because i dont know, inside or outside of object we went
-                        if (in_a < 1) {
-                            in_a = 1; // kostyl`
+                        
+                        if (in_objects.size() > 0 && in_objects[in_objects.size() - 1] == object) { // out
+                            in_objects.pop_back();
+                            if (in_objects.empty()) {
+                                in_a = 1;
+                            } else {
+                                in_a = (*scene)[in_objects.back()]->color.a;
+                            }
                         } else {
+                            in_objects.push_back(object);
                             in_a = intersected.color.a;
                         }
                     } else {
@@ -83,17 +94,16 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
         hit.color = hit.color * add;
         if (hit.color.a < 1) { // through object
             Ray through_ray(ray.pos + (ray.dir * (hit.dist + 1)), refract_vec(ray.dir, hit.normal, hit.refraction));
-            Collision through = trace_ray(scene, lights, through_ray, deep - 1);
+            Collision through = trace_ray(scene, lights, through_ray, deep - 1, reality);
             hit.color = (hit.color * hit.color.a) + (through.color * (1 - hit.color.a));
         }
         if (hit.reflection > 0) { // other ray
             Ray reflected_ray(first_intersect, reflect_vec(ray.dir, hit.normal));
-            Collision reflected = trace_ray(scene, lights, reflected_ray, deep - 1);
+            Collision reflected = trace_ray(scene, lights, reflected_ray, deep - 1, hit.real);
             if (reflected.hit) {
                 hit.color = (hit.color * (1 - hit.reflection)) + (reflected.color * hit.reflection);
             } else { // may be there is a light somewhere nearby?
                 float light_add = 0;
-                
                 for (size_t i = 0; i < lights_len; i++) {
                     Vec light_dir = (*lights)[i].pos - reflected_ray.pos;
                     float light_cos = abs(dot(light_dir.normalize(), reflected_ray.dir.normalize()));
@@ -112,9 +122,9 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
 }
 
 Vec
-refract_vec(Vec v, Vec normal, float refract) {
+refract_vec(Vec v, Vec normal, float refract, float init_refract) {
     float alpha = acos(dot(v.normalize(), normal.normalize() * (-1)));
-    float beta = asin(sin(alpha) / refract);
+    float beta = asin(sin(alpha) * init_refract / refract);
     Vec axis = cross(v, normal);
     return rotateAroundAxis(v, axis, beta - alpha);
 }
@@ -124,7 +134,8 @@ reflect_vec(Vec v, Vec normal) {
    // return v * dot(v, normal) * 2 - v;
    v = v.normalize();
    normal = normal.normalize();
-   return normal * (abs(dot(v, normal)) * 2) - v;
+//   if (dot(v, normal) < 0) normal = normal * (-1);
+   return  normal * (abs(dot(v, normal)) * 2) - v;
 }
 
 void 
@@ -171,6 +182,12 @@ render(int size) {
     cube->w = w;
     cube->h = h;
     scene.push_back(cube);
+
+    shift.x -= side / 2;
+    side /= 2;
+    base = Rectangle(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
+    Cube *other_cube = new Cube(base, Color(0, 1, 1, 1), 1, 0, 0, false);
+    scene.push_back(other_cube);
     scene.push_back(&d);
     // podstavka
 
@@ -201,7 +218,7 @@ render(int size) {
         for (int y = 0; y < size; y++) {
             Vec dir = (Vec(x, y, 0) - me).normalize();
             Ray ray = Ray(me, dir);
-            Collision hit = trace_ray(&scene, &lights, ray, 2);
+            Collision hit = trace_ray(&scene, &lights, ray, 2, -1);
             
             if (hit.hit) {
                 buffer[x + y * size] = hit.color;

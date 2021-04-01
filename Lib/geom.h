@@ -51,7 +51,8 @@ Vec rotateAroundAxis(Vec, Vec, float);
 struct Ray {
     Vec pos;
     Vec dir;
-    Ray(Vec _pos, Vec _dir) : pos(_pos), dir(_dir) {}
+    float init_refraction;
+    Ray(Vec _pos, Vec _dir, float ref = 1) : pos(_pos), dir(_dir), init_refraction(ref) {}
 };
 
 struct Collision {
@@ -134,26 +135,26 @@ struct Cube : public Object {
 
         rectangles_number = 6;
         rectangles = new Rectangle[rectangles_number];
-        rectangles[0] = base;
+        rectangles[0] = Rectangle(base.triangles[1].c, base.triangles[0].c, base.triangles[0].b, base.triangles[0].a);
         
         Vec e1 = base.triangles[0].b - base.triangles[0].a;
         Vec e2 = base.triangles[0].c - base.triangles[0].b;
         float side = e1.len();
         Vec shift = cross(e1, e2).normalize() * side;
-        rectangles[1] = rectangles[0] + shift;
+        rectangles[1] = base + shift;
     
-        Vec a(rectangles[0].triangles[0].a);
+        Vec a(base.triangles[0].a);
         Vec b = a + shift;
         Vec c = b + e1;
         Vec d = a + e1;
         
-        rectangles[2] = Rectangle(a, b, c, d);
-        rectangles[3] = rectangles[2] + e2;
+        rectangles[2] = Rectangle(d, c, b, a);
+        rectangles[3] = Rectangle(a, b, c, d) + e2;
         
         c = b + e2;
         d = a + e2;
         rectangles[4] = Rectangle(a, b, c, d);
-        rectangles[5] = rectangles[4] + e1;
+        rectangles[5] = Rectangle(d, c, b, a) + e1;
         color = col;
     }
 
@@ -178,8 +179,8 @@ struct Cube : public Object {
             Vec y_vec = rectangles[rect_n].triangles[0].b - rectangles[rect_n].triangles[0].a;
             Vec x_vec = rectangles[rect_n].triangles[0].c - rectangles[rect_n].triangles[0].b;
             Vec intersect = (ray.pos + (ray.dir * res.dist)) - rectangles[rect_n].triangles[0].a;
-            int y = intersect.y / (y_vec.len() / h);
-            int x = intersect.x / (x_vec.len() / w);
+            int y = abs(intersect.y / (y_vec.len() / h));
+            int x = abs(intersect.x / (x_vec.len() / w));
             float red = texture[(x + y * w) * 3];
             float green = texture[(x + y * w) * 3 + 1];
             float blue = texture[(x + y * w) * 3 + 2];
