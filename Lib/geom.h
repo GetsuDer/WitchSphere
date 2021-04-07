@@ -119,14 +119,26 @@ struct Cube : public Object {
     Rectangle *rectangles;
     unsigned char *texture;
     int h, w;
-    ~Cube() {
-        if (texture) {
-            stbi_image_free(texture);
+    Cube(const Cube &cube) {
+        texture = cube.texture;
+        rectangles_number = cube.rectangles_number;
+        refraction = cube.refraction;
+        reflection = cube.reflection;
+        absorbtion = cube.absorbtion;
+        color = cube.color;
+        h = cube.h;
+        w = cube.w;
+        real = cube.real;
+        rectangles = new Rectangle[rectangles_number];
+        for (int i = 0; i < rectangles_number; i++) {
+            rectangles[i] = *(new Rectangle(cube.rectangles[i]));
         }
     }
 
     Cube(Rectangle base, Color col, float refract = 1, float reflect = 0, float absorb = 0, bool is_real = true) {
         texture = NULL;
+        h = 256;
+        w = 256;
         refraction = refract;
         reflection = reflect;
         absorbtion = absorb;
@@ -157,6 +169,21 @@ struct Cube : public Object {
         rectangles[5] = Rectangle(d, c, b, a) + e1;
         color = col;
     }
+    Cube operator+(const Vec &vec) const {
+        Cube *res = new Cube(*this);
+        for (int i = 0; i < rectangles_number; i++) {
+            res->rectangles[i] = rectangles[i] + vec;
+        }
+        return *res;
+    }
+
+    Cube operator-(const Vec &vec) const {
+        Cube* res = new Cube(*this);
+        for (int i = 0; i < rectangles_number; i++) {
+            res->rectangles[i] = rectangles[i] + vec;
+        }
+        return *res;
+    }
 
     Collision intersect(Ray ray) {
         Collision res, tmp;
@@ -179,11 +206,18 @@ struct Cube : public Object {
             Vec y_vec = rectangles[rect_n].triangles[0].b - rectangles[rect_n].triangles[0].a;
             Vec x_vec = rectangles[rect_n].triangles[0].c - rectangles[rect_n].triangles[0].b;
             Vec intersect = (ray.pos + (ray.dir * res.dist)) - rectangles[rect_n].triangles[0].a;
-            int y = abs(intersect.y / (y_vec.len() / h));
-            int x = abs(intersect.x / (x_vec.len() / w));
-            float red = texture[(x + y * w) * 3];
-            float green = texture[(x + y * w) * 3 + 1];
-            float blue = texture[(x + y * w) * 3 + 2];
+            float y_f = abs(intersect.y / (y_vec.len() / h));
+            float x_f = abs(intersect.x / (x_vec.len() / w));
+            int x = floor(x_f);
+            int y = floor(y_f);
+            double x_ratio = x_f - x;
+            double y_ratio = y_f - y;
+            double x_opposite = 1 - x_ratio;
+            double y_opposite = 1 - y_ratio;
+            float red = (texture[(x + y * w) * 3] * x_opposite + texture[(x + 1 + y * w) * 3] * x_ratio) * y_opposite + (texture[(x + (y + 1) * w) * 3] * x_opposite + texture[(x + 1 + (y + 1) * w) * 3] * x_ratio) * y_ratio;
+            float green = (texture[(x + y * w) * 3 + 1] * x_opposite + texture[(x + 1 + y * w) * 3 + 1] * x_ratio) * y_opposite + (texture[(x + (y + 1) * w) * 3 + 1] * x_opposite + texture[(x + 1 + (y + 1) * w) * 3 + 1] * x_ratio) * y_ratio;
+            float blue = (texture[(x + y * w) * 3 + 2] * x_opposite + texture[(x + 1 + y * w) * 3 + 2] * x_ratio) * y_opposite + (texture[(x + (y + 1) * w) * 3 + 2] * x_opposite + texture[(x + 1 + (y + 1) * w) * 3 + 2] * x_ratio) * y_ratio;
+            
             res.color = Color(red / 255, green / 255, blue / 255, 1);
         }
         res.refraction = refraction;
@@ -239,17 +273,17 @@ struct Dodekaedr : public Object {
             Vec tmp2 = rotateAroundAxis(tmp1, cross(v, tmp1), acos(1 / sqrt(5)));
         
             Vec other_center = center + (v * d) + (tmp1 * c) + (tmp2 * c);
-            pentagons[i + 1] = Pentagon(other_center, tmp2 * b, other_center - center);
+            pentagons[i + 1] = Pentagon(other_center, tmp2 * (b), (other_center - center) * (1));
         }
 
         v = v * (-1);
         side = rotateAroundAxis(side, v, (2 * M_PI) / 10);
-        pentagons[11] = Pentagon(center + (v * d), side * b, v);
+        pentagons[11] = Pentagon(center + (v * d), side * (b), v);
         for (int i = 0; i < 5; i++) {
             Vec tmp1 = rotateAroundAxis(side, v, M_PI / 5 + i * (2 * M_PI / 5));   
             Vec tmp2 = rotateAroundAxis(tmp1, cross(v, tmp1), acos(1 / sqrt(5)));
             Vec other_center = center + (v * d) + (tmp1 * c) + (tmp2 * c);
-            pentagons[i + 6] = Pentagon(other_center, tmp2 * b, other_center - center);
+            pentagons[i + 6] = Pentagon(other_center, tmp2 * (b), (other_center - center) * (1));
         }
         
         color = col;

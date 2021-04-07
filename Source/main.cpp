@@ -25,24 +25,26 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
 
     size_t len = scene->size();
     float EPS = 1e-3;
+    size_t obj_ind = -1;
     for (size_t i = 0; i < len; i++) {
         tmp = (*scene)[i]->intersect(ray);
         if (tmp.hit && (!hit.hit || hit.dist - tmp.dist > EPS)) {
             if ((reality == -1) || (tmp.real == reality)) {
                 hit = tmp;
+                obj_ind = i;
             }
         }
     }
     if (hit.hit) {
         size_t lights_len = lights->size();
-        Vec intersect(ray.pos + (ray.dir * hit.dist));
+        Vec intersect(ray.pos + (ray.dir * hit.dist) + (hit.normal.normalize() * EPS));
         Vec first_intersect(intersect);
         // light for THIS point
-        float add = 0;
+        float add = 0.3;
         for (size_t i = 0; i < lights_len; i++) {
             Vec light_dir = (*lights)[i].pos - intersect;
             // for each light do, while not wall
-            Ray to_light(intersect - (ray.dir.normalize()), light_dir.normalize());
+            Ray to_light(intersect, light_dir.normalize());
             float way_coef = 0;
             bool result = true;
             float in_a = 1;
@@ -91,12 +93,23 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
                 add += light;
             }        
         }  
+        
+        
         hit.color = hit.color * add;
         if (hit.color.a < 1) { // through object
-            Ray through_ray(ray.pos + (ray.dir * (hit.dist + 1)), refract_vec(ray.dir, hit.normal, hit.refraction));
+            Ray through_ray(ray.pos + (ray.dir * (hit.dist + EPS)), refract_vec(ray.dir, hit.normal, hit.refraction));
             Collision through = trace_ray(scene, lights, through_ray, deep - 1, reality);
-            hit.color = (hit.color * hit.color.a) + (through.color * (1 - hit.color.a));
+         
+            float absorb = exp(-hit.absorbtion * through.dist);
+            through.color = through.color * absorb;
+        
+            if (!through.hit) {
+                // do nothing? AAAAA
+            } else {
+                hit.color = (hit.color * hit.color.a) + (through.color * (1 - hit.color.a));
+            }
         }
+
         if (hit.reflection > 0) { // other ray
             Ray reflected_ray(first_intersect, reflect_vec(ray.dir, hit.normal));
             Collision reflected = trace_ray(scene, lights, reflected_ray, deep - 1, hit.real);
@@ -106,13 +119,11 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
                 float light_add = 0;
                 for (size_t i = 0; i < lights_len; i++) {
                     Vec light_dir = (*lights)[i].pos - reflected_ray.pos;
-                    float light_cos = abs(dot(light_dir.normalize(), reflected_ray.dir.normalize()));
-                    int N = 50;
-                    float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
-                    light_add += pow(light_cos, N) * angle * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
+                    float light_cos = abs(dot(ray.dir.normalize() * (-1), reflect_vec(light_dir, hit.normal)));
+                    int N = 3;
+                    light_add += pow(light_cos, N) * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
                 }
                 hit.color = (hit.color * (1 - hit.reflection)) + (Color(1, 1, 1, 1) *  (light_add * hit.reflection));
-
             }
         }
     
@@ -131,11 +142,9 @@ refract_vec(Vec v, Vec normal, float refract, float init_refract) {
 
 Vec
 reflect_vec(Vec v, Vec normal) {
-   // return v * dot(v, normal) * 2 - v;
    v = v.normalize();
    normal = normal.normalize();
-//   if (dot(v, normal) < 0) normal = normal * (-1);
-   return  normal * (abs(dot(v, normal)) * 2) - v;
+   return (normal * (abs(dot(v, normal)) * 2) - v).normalize();
 }
 
 void 
@@ -151,12 +160,12 @@ render(int size) {
             buffer[x + y * size] = Color(0, 0, 0, 1.f);
         }
     }
-    float me_dist = size * 2;
-    Vec me(size / 2, size / 2, -me_dist);
+    float me_dist = size * 3;
+    Vec me(size / 2, 0, -me_dist);
     
     std::vector<Light> lights = std::vector<Light>();
-    lights.push_back(Light(Vec(size / 2, size / 4, -me_dist), 4 * size * size));
-    lights.push_back(Light(Vec(size / 2, 0, 0), 0.1 * size * size));
+    lights.push_back(Light(Vec(size / 2, size / 2, -size * 3), 8 * size * size));
+    lights.push_back(Light(Vec(size / 1.5, -size / 2, 0), 0.5 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
@@ -166,7 +175,7 @@ render(int size) {
     Vec d_center(size / 2, size / 2, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 3;
-    Dodekaedr d(d_center, d_normal, d_size, Color(158.f/255, 95.f/255, 189.f/255, 0.5), 1.1, 0.2, 1.3, true);
+    Dodekaedr d(d_center, d_normal, d_size, Color(158.f/255, 95.f/255, 189.f/255, 0.6), 1, 0.2, 0/*0.003*/, true);
        
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
@@ -174,51 +183,44 @@ render(int size) {
     float k = sqrt(r * r - b * b);
 
     float side = size / 5; 
-    Vec shift(d_center - Vec(side / 2, 0, 0));
+    Vec shift(d_center - Vec(side / 2, side / 2, 0));
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube* cube = new Cube(base, Color(0, 0, 1, 0.3), 1, 0, 0, false);
-    int w, h, n;
-    cube->texture = stbi_load("Resources/diamond_ore.jpg", &w, &h, &n, 3);
-    cube->w = w;
-    cube->h = h;
-    scene.push_back(cube);
+    Cube cube(Cube(base, Color(0, 0, 1, 0.3), 1, 0, 0, false));
+    int w, h;
+    unsigned char *diamond_ore = stbi_load("Resources/diamond_ore.jpg", &w, &h, NULL, 3);
+    unsigned char *ender_stone = stbi_load("Resources/ender_stone.jpg", &w, &h, NULL, 3);
+    cube.texture = ender_stone;
+    scene.push_back(&cube);
+    
+    //Cube cube1(Cube(base + Vec(side / 5, 0, 0), Color(0, 0, 1, 0.02), 1, 0, 0, false));
+    //cube1.texture = ender_stone;
+    //scene.push_back(&cube1);
 
-    shift.x -= side / 2;
-    side /= 2;
-    base = Rectangle(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube *other_cube = new Cube(base, Color(0, 1, 1, 1), 1, 0, 0, false);
-    scene.push_back(other_cube);
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < 6; j++) {
+            Cube *other_cube = new Cube(cube + Vec(side * (i - 3), 0, side * (j - 3)));
+        //    scene.push_back(other_cube);
+        }
+    }
+    
     scene.push_back(&d);
     // podstavka
 
     Color p_color(101.f/255, 131.f/255, 50.f/255, 1);
-    float p_side = size / 3;
+   // MAGIC SHIFTS 
+    float p_side = size / 1.5;
     Vec p_shift = d_center + (d_normal * k);
+    p_shift.x -= p_side / 2;
+    p_shift.z += p_side / 2;
     Rectangle* p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
     Cube* p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
-    scene.push_back(p_cube);
-
-    p_shift.z += p_side;
-    p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
-    scene.push_back(p_cube);
-
-    p_shift.z -= p_side;
-    p_shift.x -= p_side;
-    p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
-    scene.push_back(p_cube);
-
-    p_shift.z += p_side;
-    p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
-    p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
     scene.push_back(p_cube);
 
     for (int x = 0; x < size; x++) {
         for (int y = 0; y < size; y++) {
             Vec dir = (Vec(x, y, 0) - me).normalize();
             Ray ray = Ray(me, dir);
-            Collision hit = trace_ray(&scene, &lights, ray, 2, -1);
+            Collision hit = trace_ray(&scene, &lights, ray, 4, -1);
             
             if (hit.hit) {
                 buffer[x + y * size] = hit.color;
@@ -239,6 +241,8 @@ render(int size) {
 
     stbi_write_png("328_derevyanko_v4v5.png", size, size, 3, data, size * 3);
     delete[] data;
+    stbi_image_free(diamond_ore);
+    stbi_image_free(ender_stone);
     return;
 }
 
