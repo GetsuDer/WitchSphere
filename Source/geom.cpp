@@ -3,6 +3,13 @@
 #include <set>
 #include <cmath>
 
+Color
+mix(Color under, Color over) {
+    Color res = over * over.a + under * (1 - over.a);
+    res.a = over.a + under.a * (1 - over.a); 
+    return res;
+}
+
 float 
 dot(Vec v1, Vec v2) {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;

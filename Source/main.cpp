@@ -16,6 +16,70 @@ float SIZE = 1;
 Vec refract_vec(Vec, Vec, float, float i_r = 1);
 Vec reflect_vec(Vec, Vec);
 
+float 
+count_lights(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, Collision hit) {
+    float EPS = 1e-5;
+    size_t len = scene->size();
+    size_t lights_len = lights->size();
+    Vec intersect(ray.pos + (ray.dir * hit.dist)  + (hit.normal.normalize() * EPS));
+    float add = 0;
+    //float add = 0.2 * std::max(0.f, dot(ray.dir.normalize(), hit.normal.normalize()));
+   // float add = 0.2 * abs(dot(ray.dir.normalize(), hit.normal.normalize()));
+    for (size_t i = 0; i < lights_len; i++) {
+        Vec light_dir = (*lights)[i].pos - intersect;
+        Ray to_light(intersect, light_dir.normalize());
+        float way_coef = 0;
+        bool result = true;
+        float in_a = 0;
+        std::vector<size_t> in_objects = std::vector<size_t>();
+        while (true) {
+            Collision intersected, tmp;
+            size_t object = -1;
+            for (size_t j = 0; j < len; j++) {
+                tmp = (*scene)[j]->intersect(to_light);
+                if (tmp.hit && tmp.real) {
+                    if (!intersected.hit || (intersected.dist - tmp.dist > EPS)) {
+                        intersected = tmp;
+                        object = j;
+                    }
+                }
+            }
+            if (!intersected.hit) {
+                float dist = ((*lights)[0].pos - to_light.pos).len();
+                way_coef += (1 + in_a) * dist;
+                break;
+            } else { // walked into something
+               if (intersected.color.a < 1) {
+                   way_coef += (1 + in_a) * intersected.dist * ((intersected.absorbtion == 0) ? 1 : exp(-intersected.absorbtion * intersected.dist));
+                   to_light.pos = to_light.pos + (to_light.dir * intersected.dist);
+                    
+                   if (in_objects.size() > 0 && in_objects[in_objects.size() - 1] == object) { // out
+                        in_objects.pop_back();
+                        if (in_objects.empty()) {
+                            in_a = 0;
+                        } else {
+                            in_a = (*scene)[in_objects.back()]->color.a;
+                        }
+                    } else {
+                        in_objects.push_back(object);
+                        in_a = intersected.color.a;
+                    }
+                } else {
+                    result = false;
+                    break;
+                }
+             }
+        }
+        if (result) {
+           // float angle = std::max(0.f, dot(light_dir.normalize(), hit.normal.normalize()));
+            float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
+            float light = angle * ((*lights)[i].intensity / (way_coef * way_coef));
+            add += light;
+        }
+    }
+    return add;
+}
+
 Collision
 trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int deep, int reality) {
     Collision hit, tmp;
@@ -24,8 +88,8 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
     }
 
     size_t len = scene->size();
-    float EPS = 1e-3;
-    size_t obj_ind = -1;
+    float EPS = 1e-5;
+    int obj_ind = -1;
     for (size_t i = 0; i < len; i++) {
         tmp = (*scene)[i]->intersect(ray);
         if (tmp.hit && (!hit.hit || hit.dist - tmp.dist > EPS)) {
@@ -36,95 +100,59 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
         }
     }
     if (hit.hit) {
-        size_t lights_len = lights->size();
-        Vec intersect(ray.pos + (ray.dir * hit.dist) + (hit.normal.normalize() * EPS));
-        Vec first_intersect(intersect);
-        // light for THIS point
-        float add = 0.3;
-        for (size_t i = 0; i < lights_len; i++) {
-            Vec light_dir = (*lights)[i].pos - intersect;
-            // for each light do, while not wall
-            Ray to_light(intersect, light_dir.normalize());
-            float way_coef = 0;
-            bool result = true;
-            float in_a = 1;
-            std::vector<size_t> in_objects = std::vector<size_t>();
-            while (true) {
-                Collision intersected, tmp;
-                size_t object = -1;
-                for (size_t j = 0; j < len; j++) {
-                    tmp = (*scene)[j]->intersect(to_light);
-                    if (tmp.hit && tmp.real == hit.real) {
-                        if (!intersected.hit || (intersected.dist - tmp.dist > EPS)) {
-                            intersected = tmp;
-                            object = j;
-                        }
-                    } else {
-                    }
-                }
-                if (!intersected.hit) {
-                    way_coef += in_a * ((*lights)[i].pos - to_light.pos).len();
-                    break;
-                } else { // walked into something
-                    if (intersected.color.a < 1) {
-                        way_coef += in_a * intersected.dist;
-                        to_light.pos = to_light.pos + (to_light.dir * intersected.dist);
-                        
-                        if (in_objects.size() > 0 && in_objects[in_objects.size() - 1] == object) { // out
-                            in_objects.pop_back();
-                            if (in_objects.empty()) {
-                                in_a = 1;
-                            } else {
-                                in_a = (*scene)[in_objects.back()]->color.a;
-                            }
-                        } else {
-                            in_objects.push_back(object);
-                            in_a = intersected.color.a;
-                        }
-                    } else {
-                        result = false;
-                        break;
-                    }
-                }
-            }
-            if (result) {
-                float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
-                float light = angle * ((*lights)[i].intensity / (way_coef * way_coef));
-                add += light;
-            }        
-        }  
         
-        
-        hit.color = hit.color * add;
-        if (hit.color.a < 1) { // through object
-            Ray through_ray(ray.pos + (ray.dir * (hit.dist + EPS)), refract_vec(ray.dir, hit.normal, hit.refraction));
-            Collision through = trace_ray(scene, lights, through_ray, deep - 1, reality);
-         
-            float absorb = exp(-hit.absorbtion * through.dist);
-            through.color = through.color * absorb;
-        
-            if (!through.hit) {
-                // do nothing? AAAAA
+        if (hit.color.a < 1 && hit.reflection < 1) { // through object
+            Vec refracted;
+            if (ray.objects.size() && ray.objects.back() == obj_ind) {
+                float out = (*scene)[ray.objects.back()]->refraction;
+                float inner = (ray.objects.size() > 1) ? (*scene)[ray.objects.at(ray.objects.size() - 2)]->refraction : 1;
+                refracted = refract_vec(ray.dir, hit.normal, out, inner);
             } else {
-                hit.color = (hit.color * hit.color.a) + (through.color * (1 - hit.color.a));
+                refracted = refract_vec(ray.dir, hit.normal, hit.refraction, (ray.objects.size() ? (*scene)[ray.objects.back()]->refraction : 1));
+            }
+            if (refracted.len() == 0) {
+                // full inner reflection
+             //   hit.color = (hit.color * hit.color.a);
+            } else {
+                Ray through_ray(ray.pos + (ray.dir * (hit.dist + EPS)), refracted);
+                through_ray.objects = ray.objects;
+                if (through_ray.objects.empty() || through_ray.objects.back() != obj_ind) {
+                    through_ray.objects.push_back(obj_ind);
+                } else {
+                    through_ray.objects.pop_back();
+                }
+                Collision res = trace_ray(scene, lights, through_ray, (obj_ind) ? deep : deep - 1, reality);          
+
+                if (res.hit) {
+                    hit.color = (hit.color * hit.color.a) + (res.color * (1 - hit.color.a));
+                }
             }
         }
 
-        if (hit.reflection > 0) { // other ray
-            Ray reflected_ray(first_intersect, reflect_vec(ray.dir, hit.normal));
+        if (hit.reflection > 0 && dot(ray.dir, hit.normal) <= 0) { // other ray
+            
+            Ray reflected_ray(ray.pos + (ray.dir * hit.dist) + (hit.normal * 0.0001), reflect_vec(ray.dir, hit.normal));
             Collision reflected = trace_ray(scene, lights, reflected_ray, deep - 1, hit.real);
             if (reflected.hit) {
                 hit.color = (hit.color * (1 - hit.reflection)) + (reflected.color * hit.reflection);
-            } else { // may be there is a light somewhere nearby?
-                float light_add = 0;
-                for (size_t i = 0; i < lights_len; i++) {
-                    Vec light_dir = (*lights)[i].pos - reflected_ray.pos;
-                    float light_cos = abs(dot(ray.dir.normalize() * (-1), reflect_vec(light_dir, hit.normal)));
-                    int N = 3;
-                    light_add += pow(light_cos, N) * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
-                }
-                hit.color = (hit.color * (1 - hit.reflection)) + (Color(1, 1, 1, 1) *  (light_add * hit.reflection));
+            } else {
+                hit.color = hit.color * (1 - hit.reflection);
             }
+            
+            hit.color = hit.color * count_lights(scene, lights, ray, hit);
+            float light_add = 0;
+            for (size_t i = 0; i < lights->size(); i++) {
+                Vec light_dir = (*lights)[i].pos - reflected_ray.pos;
+                if (!trace_ray(scene, lights, Ray(reflected_ray.pos, light_dir), 1, reality).hit) {
+                    float angle = abs(dot(light_dir.normalize(), hit.normal.normalize()));
+                    int N = 1500;
+                    light_add += pow(angle, N) * (*lights)[i].intensity / (light_dir.len() * light_dir.len());
+                }
+            }
+            
+            hit.color = hit.color + (Color(1, 1, 1, 1) *  (light_add * hit.reflection));
+        } else {
+            hit.color = hit.color * count_lights(scene, lights, ray, hit);
         }
     
     }
@@ -136,6 +164,9 @@ Vec
 refract_vec(Vec v, Vec normal, float refract, float init_refract) {
     float alpha = acos(dot(v.normalize(), normal.normalize() * (-1)));
     float beta = asin(sin(alpha) * init_refract / refract);
+    if (beta >= (M_PI / 2)) {
+        return Vec(0, 0, 0);
+    }
     Vec axis = cross(v, normal);
     return rotateAroundAxis(v, axis, beta - alpha);
 }
@@ -161,11 +192,11 @@ render(int size) {
         }
     }
     float me_dist = size * 3;
-    Vec me(size / 2, 0, -me_dist);
+    Vec me(size / 5, 0, -me_dist);
     
     std::vector<Light> lights = std::vector<Light>();
-    lights.push_back(Light(Vec(size / 2, size / 2, -size * 3), 8 * size * size));
-    lights.push_back(Light(Vec(size / 1.5, -size / 2, 0), 0.5 * size * size));
+    lights.push_back(Light(Vec(size, -size / 2, -me_dist), 16 * size * size));
+    lights.push_back(Light(Vec(size / 2, -size, 0), 5 * size * size));
     
     std::vector<Object*> scene = std::vector<Object*>();
     std::vector<Object*> sphere = std::vector<Object*>();
@@ -175,43 +206,50 @@ render(int size) {
     Vec d_center(size / 2, size / 2, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 3;
-    Dodekaedr d(d_center, d_normal, d_size, Color(158.f/255, 95.f/255, 189.f/255, 0.6), 1, 0.2, 0/*0.003*/, true);
+    Color d_color(158.f/255, 95.f/255, 189.f/255, 0.5);
+    Dodekaedr d(d_center, d_normal, d_size, d_color, 1.6, 0.2, 0.01, true);
        
+    scene.push_back(&d);
     float a = d_size;
     float b = a / sqrt(2 - 2 * cos(2 * M_PI / 5));
     float r = a * (1 + sqrt(5)) * sqrt(3) / 4;
     float k = sqrt(r * r - b * b);
 
-    float side = size / 5; 
+    float side = size / 10; 
     Vec shift(d_center - Vec(side / 2, side / 2, 0));
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(Cube(base, Color(0, 0, 1, 0.3), 1, 0, 0, false));
+    Cube cube(Cube(base, Color(0, 1, 0, 0.6), 1, 0, 0, false));
     int w, h;
-    unsigned char *diamond_ore = stbi_load("Resources/diamond_ore.jpg", &w, &h, NULL, 3);
+    unsigned char *bedrock = stbi_load("Resources/bedrock.jpg", &w, &h, NULL, 3);
     unsigned char *ender_stone = stbi_load("Resources/ender_stone.jpg", &w, &h, NULL, 3);
     cube.texture = ender_stone;
-    scene.push_back(&cube);
+   // scene.push_back(&cube);
     
-    //Cube cube1(Cube(base + Vec(side / 5, 0, 0), Color(0, 0, 1, 0.02), 1, 0, 0, false));
-    //cube1.texture = ender_stone;
-    //scene.push_back(&cube1);
 
-    for (int i = 0; i < 6; i++) {
-        for (int j = 0; j < 6; j++) {
-            Cube *other_cube = new Cube(cube + Vec(side * (i - 3), 0, side * (j - 3)));
-        //    scene.push_back(other_cube);
-        }
-    }
-    
-    scene.push_back(&d);
+    Cube *other_cube = new Cube(cube + Vec(side, 0, 0));
+    scene.push_back(other_cube);
+    other_cube = new Cube(cube + Vec(-side, 0, 0));
+    scene.push_back(other_cube);
+    other_cube = new Cube(cube + Vec(0, 0, side));
+    scene.push_back(other_cube);
+    other_cube = new Cube(cube + Vec(0, 0, -side));
+    scene.push_back(other_cube);
+    other_cube = new Cube(cube + Vec(0, side, 0));
+    scene.push_back(other_cube);
+    other_cube = new Cube(cube + Vec(0, -side, 0));
+    other_cube->texture = bedrock;
+    scene.push_back(other_cube);
+  
+  
     // podstavka
 
     Color p_color(101.f/255, 131.f/255, 50.f/255, 1);
-   // MAGIC SHIFTS 
+ // MAGIC SHIFTS 
     float p_side = size / 1.5;
     Vec p_shift = d_center + (d_normal * k);
     p_shift.x -= p_side / 2;
     p_shift.z += p_side / 2;
+    p_shift.y += 10;
     Rectangle* p_base = new Rectangle(Vec(0, 0, 0) + p_shift, Vec(0, p_side, 0) + p_shift, Vec(p_side, p_side, 0) + p_shift, Vec(p_side, 0, 0) + p_shift);
     Cube* p_cube = new Cube(*p_base, p_color, 1, 0, 0, true);
     scene.push_back(p_cube);
@@ -220,7 +258,7 @@ render(int size) {
         for (int y = 0; y < size; y++) {
             Vec dir = (Vec(x, y, 0) - me).normalize();
             Ray ray = Ray(me, dir);
-            Collision hit = trace_ray(&scene, &lights, ray, 4, -1);
+            Collision hit = trace_ray(&scene, &lights, ray, 2, -1);
             
             if (hit.hit) {
                 buffer[x + y * size] = hit.color;
@@ -241,7 +279,7 @@ render(int size) {
 
     stbi_write_png("328_derevyanko_v4v5.png", size, size, 3, data, size * 3);
     delete[] data;
-    stbi_image_free(diamond_ore);
+    stbi_image_free(bedrock);
     stbi_image_free(ender_stone);
     return;
 }

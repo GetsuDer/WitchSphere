@@ -2,6 +2,7 @@
 #include <set>
 #include <iostream>
 #include <algorithm>
+#include <vector>
 
 #include "stb_image.h"
 
@@ -23,6 +24,8 @@ struct Color {
         return Color(r + c.r, g + c.g, b + c.b, a);
     }
 };
+
+Color mix(Color a, Color b);
 
 struct Vec {
     float x, y, z;
@@ -52,6 +55,7 @@ struct Ray {
     Vec pos;
     Vec dir;
     float init_refraction;
+    std::vector<int> objects;
     Ray(Vec _pos, Vec _dir, float ref = 1) : pos(_pos), dir(_dir), init_refraction(ref) {}
 };
 
@@ -206,19 +210,23 @@ struct Cube : public Object {
             Vec y_vec = rectangles[rect_n].triangles[0].b - rectangles[rect_n].triangles[0].a;
             Vec x_vec = rectangles[rect_n].triangles[0].c - rectangles[rect_n].triangles[0].b;
             Vec intersect = (ray.pos + (ray.dir * res.dist)) - rectangles[rect_n].triangles[0].a;
-            float y_f = abs(intersect.y / (y_vec.len() / h));
-            float x_f = abs(intersect.x / (x_vec.len() / w));
+            
+            float x_f = dot(intersect.normalize(), x_vec.normalize()) * intersect.len() / x_vec.len() * 256;  
+            float y_f = dot(intersect.normalize(), y_vec.normalize()) * intersect.len() / y_vec.len() * 256;
+            if (x_f < 0) x_f = 0;
+            if (y_f < 0) y_f = 0;
             int x = floor(x_f);
             int y = floor(y_f);
             double x_ratio = x_f - x;
             double y_ratio = y_f - y;
             double x_opposite = 1 - x_ratio;
             double y_opposite = 1 - y_ratio;
+            
             float red = (texture[(x + y * w) * 3] * x_opposite + texture[(x + 1 + y * w) * 3] * x_ratio) * y_opposite + (texture[(x + (y + 1) * w) * 3] * x_opposite + texture[(x + 1 + (y + 1) * w) * 3] * x_ratio) * y_ratio;
             float green = (texture[(x + y * w) * 3 + 1] * x_opposite + texture[(x + 1 + y * w) * 3 + 1] * x_ratio) * y_opposite + (texture[(x + (y + 1) * w) * 3 + 1] * x_opposite + texture[(x + 1 + (y + 1) * w) * 3 + 1] * x_ratio) * y_ratio;
             float blue = (texture[(x + y * w) * 3 + 2] * x_opposite + texture[(x + 1 + y * w) * 3 + 2] * x_ratio) * y_opposite + (texture[(x + (y + 1) * w) * 3 + 2] * x_opposite + texture[(x + 1 + (y + 1) * w) * 3 + 2] * x_ratio) * y_ratio;
-            
-            res.color = Color(red / 255, green / 255, blue / 255, 1);
+          
+            res.color = Color(red / 255.f, green / 255.f, blue / 255.f, color.a);
         }
         res.refraction = refraction;
         res.reflection = reflection;
