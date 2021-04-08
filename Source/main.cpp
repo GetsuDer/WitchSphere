@@ -93,7 +93,7 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
     for (size_t i = 0; i < len; i++) {
         tmp = (*scene)[i]->intersect(ray);
         if (tmp.hit && (!hit.hit || hit.dist - tmp.dist > EPS)) {
-            if ((reality == -1) || (tmp.real == reality)) {
+            if ((reality == -1) || tmp.real || !reality) {
                 hit = tmp;
                 obj_ind = i;
             }
@@ -112,7 +112,7 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
             }
             if (refracted.len() == 0) {
                 // full inner reflection
-             //   hit.color = (hit.color * hit.color.a);
+                hit.color = (hit.color * hit.color.a);
             } else {
                 Ray through_ray(ray.pos + (ray.dir * (hit.dist + EPS)), refracted);
                 through_ray.objects = ray.objects;
@@ -121,7 +121,7 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
                 } else {
                     through_ray.objects.pop_back();
                 }
-                Collision res = trace_ray(scene, lights, through_ray, (obj_ind) ? deep : deep - 1, reality);          
+                Collision res = trace_ray(scene, lights, through_ray, deep - 1, (!obj_ind && reality == -1) ? false : hit.real);          
 
                 if (res.hit) {
                     hit.color = (hit.color * hit.color.a) + (res.color * (1 - hit.color.a));
@@ -206,7 +206,7 @@ render(int size) {
     Vec d_center(size / 2, size / 2, 0);
     Vec d_normal(0, 1, 0);
     float d_size = size / 3;
-    Color d_color(158.f/255, 95.f/255, 189.f/255, 0.5);
+    Color d_color(158.f/255, 95.f/255, 189.f/255, 0.7);
     Dodekaedr d(d_center, d_normal, d_size, d_color, 1.6, 0.2, 0.01, true);
        
     scene.push_back(&d);
@@ -218,7 +218,7 @@ render(int size) {
     float side = size / 10; 
     Vec shift(d_center - Vec(side / 2, side / 2, 0));
     Rectangle base(Vec(0, 0, 0) + shift, Vec(0, side, 0) + shift, Vec(side, side, 0) + shift, Vec(side, 0, 0) + shift);
-    Cube cube(Cube(base, Color(0, 1, 0, 0.6), 1, 0, 0, false));
+    Cube cube(Cube(base, Color(0, 1, 0, 0.1), 1.6, 0, 0, false));
     int w, h;
     unsigned char *bedrock = stbi_load("Resources/bedrock.jpg", &w, &h, NULL, 3);
     unsigned char *ender_stone = stbi_load("Resources/ender_stone.jpg", &w, &h, NULL, 3);
@@ -258,7 +258,7 @@ render(int size) {
         for (int y = 0; y < size; y++) {
             Vec dir = (Vec(x, y, 0) - me).normalize();
             Ray ray = Ray(me, dir);
-            Collision hit = trace_ray(&scene, &lights, ray, 2, -1);
+            Collision hit = trace_ray(&scene, &lights, ray, 8, -1);
             
             if (hit.hit) {
                 buffer[x + y * size] = hit.color;
