@@ -96,6 +96,7 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
             if ((reality == -1) || tmp.real || !reality) {
                 hit = tmp;
                 obj_ind = i;
+                hit.object = i;
             }
         }
     }
@@ -154,7 +155,17 @@ trace_ray(std::vector<Object *> *scene, std::vector<Light> *lights, Ray ray, int
         } else {
             hit.color = hit.color * count_lights(scene, lights, ray, hit);
         }
-    
+        if (hit.object > 0 && hit.object < scene->size() - 1) {
+            Ray x_plus_ray = Ray(Vec(ray.pos.x + SIZE / 60, ray.pos.y, ray.pos.z), ray.dir);
+            Ray x_minus_ray = Ray(Vec(ray.pos.x - SIZE / 60, ray.pos.y, ray.pos.z), ray.dir);
+            Ray y_plus_ray = Ray(Vec(ray.pos.x, ray.pos.y + SIZE / 60, ray.pos.z), ray.dir);
+            Ray y_minus_ray = Ray(Vec(ray.pos.x, ray.pos.y - SIZE / 60, ray.pos.z), ray.dir);
+            Collision x_plus_col = trace_ray(scene, lights, x_plus_ray, std::min(2, deep - 1), reality);
+            Collision x_minus_col = trace_ray(scene, lights, x_minus_ray, std::min(2, deep - 1), reality);
+            Collision y_plus_col = trace_ray(scene, lights, y_plus_ray, std::min(2, deep - 1), reality);
+            Collision y_minus_col = trace_ray(scene, lights, y_minus_ray, std::min(2, deep - 1), reality);
+            hit.color = (hit.color * 0.6) + (x_plus_col.color * 0.1) + (x_minus_col.color * 0.1) + (y_plus_col.color * 0.1) + (y_minus_col.color * 0.1);
+        }    
     }
     
     return hit;
@@ -258,7 +269,7 @@ render(int size) {
         for (int y = 0; y < size; y++) {
             Vec dir = (Vec(x, y, 0) - me).normalize();
             Ray ray = Ray(me, dir);
-            Collision hit = trace_ray(&scene, &lights, ray, 8, -1);
+            Collision hit = trace_ray(&scene, &lights, ray, 6, -1);
             
             if (hit.hit) {
                 buffer[x + y * size] = hit.color;

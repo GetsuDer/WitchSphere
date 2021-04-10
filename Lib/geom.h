@@ -68,6 +68,7 @@ struct Collision {
     float reflection;
     float absorbtion;
     bool real;
+    int object;
     Collision() : real(true), hit(false), dist(), normal(), color() {}        
 };
 
